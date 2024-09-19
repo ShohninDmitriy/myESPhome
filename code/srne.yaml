@@ -52,10 +52,9 @@ wifi:
     password: "sebydocky"
     
 time:
-  - platform: sntp
-    id: sntp_time   
-    timezone: "CET-1CEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00" #https://sites.google.com/a/usapiens.com/opnode/time-zones
-    servers: "de.pool.ntp.org"
+  - platform: homeassistant
+    id: homeassistant_time
+
 
     on_time:
     - seconds: 59
@@ -65,11 +64,11 @@ time:
 
         - globals.set:
                 id: pv_power_total_veille_global
-                value: !lambda return ( id(pv_power_total_veille_global) =  float( id(pv_power_total_du_jour).state) );         
+                value: !lambda return ( id(pv_power_total_veille_global) =  float( id(pv_power_total_day).state) );         
                 
         - globals.set:
                 id: charging_power_total_veille_global
-                value: !lambda return ( id(charging_power_total_veille_global) =  float( id(charging_power_total_du_jour).state) );        
+                value: !lambda return ( id(charging_power_total_veille_global) =  float( id(charging_power_total_day).state) );        
 
 
 globals:
@@ -278,11 +277,11 @@ sensor:
         return 0;
       }
   - platform: total_daily_energy
-    name: ${name}_charging_power_total_du_jour
+    name: ${name}_charging_power_total_day
     power_id: charging_power 
     unit_of_measurement: "kWh"
     accuracy_decimals: 2
-    id: charging_power_total_du_jour
+    id: charging_power_total_day
     method: trapezoid
     filters:
         # Multiplication factor from W to kW is 0.001
@@ -407,11 +406,11 @@ sensor:
 
 
   - platform: total_daily_energy
-    name: ${name}_pv_power_total_du_jour
+    name: ${name}_pv_power_total_day
     power_id: solar_panel_power 
     unit_of_measurement: "kWh"
     accuracy_decimals: 2
-    id: pv_power_total_du_jour
+    id: pv_power_total_day
     method: trapezoid
     filters:
         # Multiplication factor from W to kW is 0.001
@@ -522,6 +521,18 @@ sensor:
     accuracy_decimals: 1
     icon: mdi:power
     unit_of_measurement: "W"
+
+    - platform: modbus_controller
+    modbus_controller_id: srne
+    id: battery_maximum_charging_amp_day
+    name: ${name}_battery_maximum_charging_amp_day
+    address: 0x0111
+    register_type: holding
+    value_type: U_WORD
+    skip_updates: 1 
+    accuracy_decimals: 1
+    icon: mdi:power
+    unit_of_measurement: "A"
 
   - platform: modbus_controller
     modbus_controller_id: srne
