@@ -6,14 +6,13 @@
 #include "esphome/core/hal.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/switch/switch.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/output/float_output.h"
 #include "esphome/components/time/real_time_clock.h"
 
 namespace esphome {
 namespace solarpid {
 
-//class SOLARPID : public PollingComponent  {
-//class SOLARPID : public sensor::Sensor, public switch_::Switch, public output::FloatOutput, public Component {
 class SOLARPID : public Component {
  public:
   void set_setpoint(float setpoint) { setpoint_ = setpoint; }
@@ -22,13 +21,17 @@ class SOLARPID : public Component {
   void set_kd(float kd) { kd_ = kd; }
   void set_output_min(float output_min) { output_min_ = output_min; }
   void set_output_max(float output_max) { output_max_ = output_max; }
-  void set_pwm_restart(float pwm_restart) { pwm_restart_ = pwm_restart; }
+  void set_output_restart(float output_restart) { output_restart_ = output_restart; }
+  void set_starting_battery_voltage(float starting_battery_voltage) { starting_battery_voltage_ = starting_battery_voltage; }
   void set_activation_switch(switch_::Switch *activation_switch) {activation_switch_ = activation_switch;}
   void set_input_sensor(sensor::Sensor *input_sensor) { input_sensor_ = input_sensor; }
   void set_power_sensor(sensor::Sensor *power_sensor) { power_sensor_ = power_sensor; }
-  void set_output(output::FloatOutput *output) { output_ = output; }
+  void set_device_output(output::FloatOutput *device_output) { device_output_ = device_output; }
   void set_error(sensor::Sensor *error_sensor) { error_sensor_ = error_sensor; }
-  void set_pwm_output(sensor::Sensor *pwm_output_sensor) { pwm_output_sensor_ = pwm_output_sensor; }
+  void set_output(sensor::Sensor *output_sensor) { output_sensor_ = output_sensor; }
+  void set_battery_voltage_sensor(sensor::Sensor *battery_voltage_sensor) { battery_voltage_sensor_ = battery_voltage_sensor; }
+
+  void set_thermostat_cut_binary_sensor(binary_sensor::BinarySensor *thermostat_cut_sensor) { this->thermostat_cut_sensor_ = thermostat_cut_sensor; }
   
   void setup() override;
   void dump_config() override;
@@ -36,32 +39,34 @@ class SOLARPID : public Component {
   // void loop() override;
   void pid_update();
  protected:
-  //void pid_update();
  
-
-  //void write_output(float)
-  
-  float setpoint_ , kp_ , ki_ , kd_ , output_min_ , output_max_ , pwm_restart_; 
+  float setpoint_ , kp_ , ki_ , kd_ , output_min_ , output_max_ , output_restart_ , starting_battery_voltage_; 
   uint32_t last_time_ = 0;
   float dt_;
   float error_;
   float previous_error_ = 0.0f;
-  float pwm_output_;
-  float previous_pwm_output_ = 0.0f;
+  float output_;
+  float previous_output_ = 0.0f;
   float integral_= 0.0f; 
   float derivative_ = 0.0f;
   float current_point;
   float current_input_;
   float current_power_;
+  float current_battery_voltage_;
   bool current_activation_;
+  bool current_thermostat_cut_;
+  
  
   switch_::Switch *activation_switch_;
   sensor::Sensor *input_sensor_;
   sensor::Sensor *power_sensor_;
-  output::FloatOutput *output_;
+  sensor::Sensor *battery_voltage_sensor_;
+  output::FloatOutput *device_output_;
+  binary_sensor::BinarySensor *thermostat_cut_sensor_{nullptr};
 
   sensor::Sensor *error_sensor_{nullptr};
-  sensor::Sensor *pwm_output_sensor_{nullptr};
+  sensor::Sensor *output_sensor_{nullptr};
+
 };
 
 template<typename... Ts> 
@@ -132,16 +137,26 @@ class SetOutputMaxAction : public Action<Ts...> {
 };
 
 template<typename... Ts> 
-class SetPwmRestartAction : public Action<Ts...> {
+class SetOutputRestartAction : public Action<Ts...> {
  public:
-  SetPwmRestartAction(SOLARPID *parent) : parent_(parent) {}
-  TEMPLATABLE_VALUE(float, new_pwm_restart)
-  void play(Ts... x) override { this->parent_->set_pwm_restart(this->new_pwm_restart_.value(x...) ); }
+  SetOutputRestartAction(SOLARPID *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(float, new_output_restart)
+  void play(Ts... x) override { this->parent_->set_output_restart(this->new_output_restart_.value(x...) ); }
   
  protected:
    SOLARPID *parent_;
 };
 
+template<typename... Ts> 
+class SetStartingBatteryVoltageAction : public Action<Ts...> {
+ public:
+  SetStartingBatteryVoltageAction(SOLARPID *parent) : parent_(parent) {}
+  TEMPLATABLE_VALUE(float, new_starting_battery_voltage)
+  void play(Ts... x) override { this->parent_->set_starting_battery_voltage(this->new_starting_battery_voltage_.value(x...) ); }
+  
+ protected:
+   SOLARPID *parent_;
+};
 
 template<typename... Ts> 
 class PidUpdateAction : public Action<Ts...> {
