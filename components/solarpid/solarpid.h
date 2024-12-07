@@ -24,6 +24,7 @@ class SOLARPID : public Component {
   void set_output_restart(float output_restart) { output_restart_ = output_restart; }
   void set_starting_battery_voltage(float starting_battery_voltage) { starting_battery_voltage_ = starting_battery_voltage; }
   void set_activation_switch(switch_::Switch *activation_switch) {activation_switch_ = activation_switch;}
+  void set_manual_override_switch(switch_::Switch *manual_override_switch) {manual_override_switch_ = manual_override_switch;}
   void set_input_sensor(sensor::Sensor *input_sensor) { input_sensor_ = input_sensor; }
   void set_power_sensor(sensor::Sensor *power_sensor) { power_sensor_ = power_sensor; }
   void set_device_output(output::FloatOutput *device_output) { device_output_ = device_output; }
@@ -54,10 +55,12 @@ class SOLARPID : public Component {
   float current_power_;
   float current_battery_voltage_;
   bool current_activation_;
+  bool current_manual_override_;
   bool current_thermostat_cut_;
   
  
   switch_::Switch *activation_switch_;
+  switch_::Switch *manual_override_switch_;
   sensor::Sensor *input_sensor_;
   sensor::Sensor *power_sensor_;
   sensor::Sensor *battery_voltage_sensor_;
