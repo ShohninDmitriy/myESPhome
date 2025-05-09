@@ -4,11 +4,11 @@
 #include "../offsr.h"
 
 namespace esphome {
-namespace osr {
+namespace offsr {
 
-class ActivationSwitch : public switch_::Switch, public Parented<OFFSRComponent> {
+class ManualOverrideSwitch : public switch_::Switch, public Parented<OFFSRComponent> {
  public:
-  ActivationSwitch() = default;
+  ManualOverrideSwitch() = default;
 
  protected:
   void write_state(bool state) override;
