@@ -6,8 +6,9 @@
 namespace esphome {
 namespace offsr {
 
-class ActivationSwitch : public switch_::Switch, public Component, public Parented<OFFSRComponent> {
+class PidModeSwitch : public switch_::Switch, public Component, public Parented<OFFSRComponent> {
  public:
+  // PidModeSwitch() = default;
   void setup() override;
 
  protected:
