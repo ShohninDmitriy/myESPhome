@@ -48,6 +48,7 @@ UNIT_VOLT_AMPS_REACTIVE = "VAr"
 
 ICON_FREQUENCY = "mdi:sine-wave"
 ICON_NUMERIC = "mdi:numeric"
+ICON_COUNTER = "mdi:counter"
 
 CODEOWNERS = ["@SeByDocKy"]
 AUTO_LOAD = ["modbus"]
@@ -111,12 +112,14 @@ CONFIG_SCHEMA = (
             ),
             cv.Optional(CONF_ACTIVE_ENERGY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_KILOWATT_HOURS,
+				icon=ICON_COUNTER,
                 accuracy_decimals=1,
                 device_class=DEVICE_CLASS_ENERGY,
                 state_class=STATE_CLASS_TOTAL_INCREASING,
             ),
             cv.Optional(CONF_REACTIVE_ENERGY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_KILOVOLT_AMPS_REACTIVE_HOURS,
+				icon=ICON_COUNTER,
                 accuracy_decimals=1,
                 device_class=DEVICE_CLASS_ENERGY,
                 state_class=STATE_CLASS_TOTAL_INCREASING,
@@ -138,28 +141,28 @@ CONFIG_SCHEMA = (
 	    ),
             cv.Optional(CONF_POS_ACTIVE_ENERGY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_KILOWATT_HOURS,
-                icon=ICON_POWER,
+                icon=ICON_COUNTER,
                 accuracy_decimals=1,
                 device_class=DEVICE_CLASS_POWER,
                 state_class=STATE_CLASS_MEASUREMENT,
 	    ),
             cv.Optional(CONF_NEG_ACTIVE_ENERGY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_KILOWATT_HOURS,
-                icon=ICON_POWER,
+                icon=ICON_COUNTER,
                 accuracy_decimals=1,
                 device_class=DEVICE_CLASS_POWER,
                 state_class=STATE_CLASS_MEASUREMENT,
 	    ),
             cv.Optional(CONF_POS_REACTIVE_ENERGY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_KILOVOLT_AMPS_REACTIVE_HOURS,
-                icon=ICON_POWER,
+                icon=ICON_COUNTER,
                 accuracy_decimals=1,
                 device_class=DEVICE_CLASS_POWER,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_NEG_REACTIVE_ENERGY): sensor.sensor_schema(
                 unit_of_measurement=UNIT_KILOVOLT_AMPS_REACTIVE_HOURS,
-                icon=ICON_POWER,
+                icon=ICON_COUNTER,
                 accuracy_decimals=1,
                 device_class=DEVICE_CLASS_POWER,
                 state_class=STATE_CLASS_MEASUREMENT,

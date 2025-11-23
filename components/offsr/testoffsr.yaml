@@ -8,12 +8,10 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
-    version: 4.4.8
-    platform_version: 5.4.0
     
 logger:
   # baud_rate: 0
-  level: verbose    
+  # level: verbose    
   
 ota:
   - platform: esphome  
@@ -23,14 +21,6 @@ external_components:
     components: [offsr]
     refresh: 0s
     
-  # - source: github://KinDR007/VictronSmartShunt-ESPHOME@main
-    # components: [victron_smart_shunt]
-    # refresh: 0s  
-    
-  - source: "github://SeByDocKy/myESPhome/"
-    components: [esp32,debug]
-    refresh: 0s    
-
 api:
 
 
