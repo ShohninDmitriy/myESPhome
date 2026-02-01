@@ -88,8 +88,10 @@ void HmsInverter::doretart(){
 // }
 
 void HmsInverter::write_float(float value){
-     if (value != NULL){ //NAN
-       this->inverter_->sendActivePowerControlRequest(value*100, PowerLimitControlType::RelativNonPersistent);
+     if (value != NULL){ 
+        // value must be in [0.0 - 1.0]
+       // ESP_LOGI(TAG, "output received: %2.2f", value);  
+       this->inverter_->sendActivePowerControlRequest(value*100.0f, PowerLimitControlType::RelativNonPersistent);
        this->active_ = true;
      }
 }
@@ -304,11 +306,11 @@ void HmsPlatform::setup() {
         auto inv = this->inverters_[i];
         auto name = "Inv_" + std::to_string(i);
         auto invp = this->hoymiles_->addInverter(name.c_str(), inv->serial());
-        
+        ESP_LOGI(TAG, "Current inverter serial# %" PRIu64, inv->serial());
         if (invp != nullptr) {
             inv->set_inverter(invp);
-            ESP_LOGI(TAG, "Added inverter model: %s", invp->typeName().c_str());
             invp->init();
+            ESP_LOGI(TAG, "Added inverter model: %s", invp->typeName().c_str());
         } else {
             ESP_LOGW(TAG, "Invalid inverter serial# %" PRIu64, inv->serial());
         }

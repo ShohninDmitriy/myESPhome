@@ -161,12 +161,14 @@ SUB_NUMBER(output_max_discharging)
   float output_charging_ = 0.0f;
   float output_discharging_ = 0.0f;
   float previous_output_ = 0.5f;
+  float previous_output_charging_ = 0.0f;
+  float previous_output_discharging_ = 0.0f;
   float integral_= 0.0f; 
   float derivative_ = 0.0f;
   
-  float current_charging_epoint_ = 0.5f;
-  float current_absorbing_epoint_ = 0.2f;
-  float current_floating_epoint_ = 0.0f;
+  float current_charging_epoint_ = 50.0f; // 0.5f;
+  float current_absorbing_epoint_ = 2.0f; // 0.2f;
+  float current_floating_epoint_ = 0.0f;// 0.0f;
   
   float current_input_ = 0.0f;
   float current_battery_voltage_ = 54.0f;
@@ -188,7 +190,7 @@ SUB_NUMBER(output_max_discharging)
   float current_output_charging_ = 0.0f;
   float current_output_discharging_ = 0.0f;
   float current_target_ = 0.0f;
-  float current_epoint_ = 0.5f;
+  float current_epoint_ = 50.0f;
 #endif   
 
 #ifdef USE_SWITCH  
@@ -202,30 +204,30 @@ SUB_NUMBER(output_max_discharging)
 #ifdef USE_NUMBER
   float current_setpoint_ = 0.0f;
 
-  float current_starting_battery_voltage_ = 53.5f;
+  float current_starting_battery_voltage_ = 50.0f;
   float current_charged_battery_voltage_ = 55.8f;
   float current_discharged_battery_voltage_ = 55.6f;
   
-  float current_kp_ = 4.0f;
+  float current_kp_ = 3.0f;
   float current_ki_ = 0.0f;
   float current_kd_ = 0.0f;
   
-  float current_kp_charging_ = 4.0f;
+  float current_kp_charging_ = 3.0f;
   float current_ki_charging_ = 0.0f;
   float current_kd_charging_ = 0.0f;
   
-  float current_kp_discharging_ = 4.0f;
+  float current_kp_discharging_ = 3.0f;
   float current_ki_discharging_ = 0.0f;
   float current_kd_discharging_ = 0.0f;  
   
-  float current_output_max_ = 1.0f;
+  float current_output_max_ = 100.0f;
   float current_output_min_ = 0.0f;
 
-  float current_output_max_charging_ = 1.0f;
-  float current_output_min_charging_ = 0.02f;
+  float current_output_max_charging_ = 100.0f;
+  float current_output_min_charging_ = 2.0f;
 
-  float current_output_max_discharging_ = 1.0f;
-  float current_output_min_discharging_ = 0.05f;
+  float current_output_max_discharging_ = 100.0f;
+  float current_output_min_discharging_ = 2.0f;
 
 #endif
 
@@ -233,6 +235,15 @@ SUB_NUMBER(output_max_discharging)
 		
  }  // namespace dualpid
 }  // namespace esphome
+
+
+
+
+
+
+
+
+
 
 
 

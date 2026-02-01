@@ -5,16 +5,21 @@ namespace esphome {
 namespace dualpid {
 
 static const char *const TAG = "dualpid";
-static const float coeffP = 0.001f;
-static const float coeffI = 0.0001f;
-static const float coeffD = 0.001f;
+
+static const float coeffPcharging = 0.0001f;
+static const float coeffIcharging = 0.0001f;
+static const float coeffDcharging = 0.001f;
+
+static const float coeffPdischarging = 0.001f;
+static const float coeffIdischarging = 0.0001f;
+static const float coeffDdischarging = 0.001f;
 
 void DUALPIDComponent::setup() { 
   ESP_LOGCONFIG(TAG, "Setting up DUALPIDComponent...");
   
   this->last_time_ =  millis();
   this->integral_  = 0.0f;
-  this->previous_output_ = 0.0f;
+  this->previous_output_ = this->current_epoint_;
   this->previous_error_ = 0.0f;
   
   if (this->input_sensor_ != nullptr) {
@@ -50,6 +55,7 @@ void DUALPIDComponent::pid_update() {
   uint32_t now = millis();
   float tmp;
   float alphaP, alphaI, alphaD, alpha;
+  float coeffP, coeffI, coeffD;
   float cc, cd;
   bool e;
   
@@ -81,14 +87,15 @@ void DUALPIDComponent::pid_update() {
   if (!this->current_manual_override_){
 #endif
     this->dt_   = float(now - this->last_time_)/1000.0f;
-	tmp         = (this->current_input_ - this->current_setpoint_);  // initial error estimation
+	tmp         = (this->current_input_ - this->current_setpoint_);  // initial epsilon error estimation
 	  
-	if (e & tmp<0.0f){
-		this->error_ = -tmp;
-	}
-	else{
-		this->error_ = tmp; 
-    }
+	// if (e & tmp<0.0f){
+	// 	this->error_ = tmp; //-tmp;
+	// }
+	// else{
+	// 	this->error_ = tmp; 
+ //    }
+	  
 #ifdef USE_SWITCH	  
 	if (this->current_reverse_){
 		this->error_ = -this->error_;
@@ -114,15 +121,33 @@ void DUALPIDComponent::pid_update() {
 	  this->current_kp_ = this->current_kp_charging_;
 	  this->current_ki_ = this->current_ki_charging_;
 	  this->current_kd_ = this->current_kd_charging_;
+      
+	  coeffP = coeffPcharging*this->current_kp_;
+	  coeffI = coeffIcharging*this->current_kp_;
+	  coeffD = coeffDcharging*this->current_kd_;
+		
+	  alphaP = coeffP * this->error_;
+	  alphaI = coeffI * this->integral_;
+	  alphaD = coeffD * this->derivative_;
+	
 	}
 	else{
 	  this->current_kp_ = this->current_kp_discharging_;
 	  this->current_ki_ = this->current_ki_discharging_;
 	  this->current_kd_ = this->current_kd_discharging_;
+
+	  coeffP = coeffPdischarging*this->current_kp_;
+	  coeffI = coeffIdischarging*this->current_kp_;
+	  coeffD = coeffDdischarging*this->current_kd_;	
+
+	  alphaP = coeffP * this->error_;
+	  alphaI = coeffI * this->integral_;
+	  alphaD = coeffD * this->derivative_;
 	}
-	alphaP = coeffP*this->current_kp_ * this->error_;
-	alphaI = coeffI*this->current_ki_ * this->integral_;
-	alphaD = coeffD*this->current_kd_ * this->derivative_;
+	
+	// alphaP = coeffP*this->current_kp_ * this->error_;
+	// alphaI = coeffI*this->current_ki_ * this->integral_;
+	// alphaD = coeffD*this->current_kd_ * this->derivative_;
 	alpha  = alphaP + alphaI + alphaD;
 	
     this->output_ = std::min(std::max( tmp + alpha, this->current_output_min_ ) , this->current_output_max_);
@@ -136,11 +161,10 @@ void DUALPIDComponent::pid_update() {
 	
 	ESP_LOGI(TAG, "PIDcoeff = %3.8f" , alpha );
 	
-    ESP_LOGI(TAG, "full pid update: setpoint %3.2f, Kp=%3.2f, Ki=%3.2f, Kd=%3.2f, output_min = %3.2f , output_max = %3.2f ,  previous_output_ = %3.2f , output_ = %3.2f , error_ = %3.2f, integral = %3.2f , derivative = %3.2f", this->current_target_ , coeffP*this->current_kp_ , coeffI*this->current_ki_ , coeffD*this->current_kd_ , this->current_output_min_ , this->current_output_max_ , this->previous_output_ , this->output_ , this->error_ , this->integral_ , this->derivative_);  
-
-    this->last_time_       = now;
-    this->previous_error_  = this->error_;
-    this->previous_output_ = this->output_;
+	ESP_LOGI(TAG, "full pid update: setpoint %3.2f, Kp=%3.2f, Ki=%3.2f, Kd=%3.2f, output_min = %3.2f , output_max = %3.2f ,  previous_output_ = %3.2f , output_ = %3.2f , error_ = %3.2f, integral = %3.2f , derivative = %3.2f", this->current_target_ , coeffP*this->current_kp_ , coeffI*this->current_ki_ , coeffD*this->current_kd_ , this->current_output_min_ , this->current_output_max_ , this->previous_output_ , this->output_ , this->error_ , this->integral_ , this->derivative_);    
+    // this->last_time_       = now;
+    // this->previous_error_  = this->error_;
+    // this->previous_output_ = this->output_;
     
 	ESP_LOGI(TAG, "activation %d", this->current_activation_);
 
@@ -148,14 +172,16 @@ void DUALPIDComponent::pid_update() {
 	if(e){ // Charge <-> ACin (230V)->R48->DC 48V
        tmp                       = (this->current_epoint_ - this->output_); // tmp is positive
 	   this->output_charging_    = tmp; //cc*tmp; ?
-	   this->output_discharging_ = 0.0f; 
+	   this->output_discharging_ = 0.0f;	
 	   this->output_charging_    = std::min(std::max( this->output_charging_ , this->current_output_min_charging_ ) , this->current_output_max_charging_);
+	   this->previous_output_    = this->current_epoint_;
 	}
 	else{ // Discharge <-> Battery DC 48V->HMS->ACout (230V)
        tmp                       = (this->output_ - this->current_epoint_ ); // tmp is positive
-	   this->output_charging_    = 0.0f; 
+	   this->output_charging_    = 0.0f;
 	   this->output_discharging_ = cd*tmp; // tmp;?
 	   this->output_discharging_ = std::min(std::max( this->output_discharging_ , this->current_output_min_discharging_ ) , this->current_output_max_discharging_);	
+	   this->previous_output_    = this->current_epoint_;
 	}
 	// tmp is a positive value
 
@@ -187,11 +213,13 @@ void DUALPIDComponent::pid_update() {
 	  
     if (this->r48_general_switch_ != nullptr) {
  	 if((this->output_charging_ >= this->current_output_min_charging_) & (this->r48_general_switch_->state==false)){
-       this->r48_general_switch_->control(true);
+       // this->r48_general_switch_->control(true);
+	   this->r48_general_switch_->turn_on();	 
 	   this->r48_general_switch_->publish_state(true);	
      }
 	 else if  ((this->output_discharging_ >= this->current_output_min_discharging_) & (this->r48_general_switch_->state==true)){
-       this->r48_general_switch_->control(false);
+       // this->r48_general_switch_->control(false);
+	   this->r48_general_switch_->turn_off();	 
 	   this->r48_general_switch_->publish_state(false);
 	 }
     }
@@ -208,11 +236,13 @@ void DUALPIDComponent::pid_update() {
 
 
 	ESP_LOGI(TAG, "Final computed output=%1.6f, output_charging_=%1.6f, output_discharging_=%1.6f" , this->output_, this->output_charging_, this->output_discharging_);
-	
-    this->device_charging_output_->set_level(this->output_charging_);          // send command to r48
-	this->device_discharging_output_->set_level(this->output_discharging_);    // send command to HMS
-	
-	this->current_output_             = this->output_;
+	if (this->output_charging_ != this->previous_output_charging_){
+      this->device_charging_output_->set_level(this->output_charging_);          // send command to r48, must be in [0.0 - 1.0] //
+	}
+	if (this->output_discharging_ != this->previous_output_discharging_){  
+	  this->device_discharging_output_->set_level(this->output_discharging_);    // send command to HMS, must be in [0.0 - 1.0] //
+	}
+	this->current_output_             = this->output_;  // must be in [0.0 - 1.0] //
 	this->current_output_charging_    = this->output_charging_;
 	  
 #ifdef USE_BINARY_SENSOR
@@ -223,6 +253,13 @@ void DUALPIDComponent::pid_update() {
 	}
 #endif
     this->pid_computed_callback_.call();
+
+    this->last_time_                   = now;
+    this->previous_error_              = this->error_;
+    this->previous_output_             = this->output_;
+	this->previous_output_charging_    = this->output_charging_;
+	this->previous_output_discharging_ = this->output_discharging_;
+	  
 	  
 #ifdef USE_SWITCH	
   } 
@@ -232,7 +269,3 @@ void DUALPIDComponent::pid_update() {
 
  }  // namespace dualpid
 }  // namespace esphome
-
-
-
-

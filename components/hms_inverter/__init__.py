@@ -187,8 +187,10 @@ async def to_code(config):
     cg.add_build_flag("-std=c++17")
     cg.add_build_flag("-std=gnu++17")
     cg.add_build_flag("-fexceptions")
-    cg.add_build_flag("-DHMS_INVERTER")
+    # cg.add_build_flag("-D_TASK_STD_FUNCTION=1")
+    # cg.add_build_flag("-D_TASK_THREAD_SAFE=1")
     cg.add_platformio_option("build_unflags", ["-std=gnu++11", "-fno-exceptions"])
+    cg.add_build_flag("-DHMS_INVERTER")
 
     ############# with new OpenDTU lib #############
     # cg.add_library("SPI", None)  ### Works with arduino v2.0.x no more from arduino v3.1.x... 
@@ -198,9 +200,7 @@ async def to_code(config):
     # cg.add_library("Hoymiles-lib", None, "https://github.com/SeByDocKy/Hoymiles-lib")
     # cg.add_library("Hoymiles", None, "https://github.com/SeByDocKy/Hoymiles") ## new version with SPImanager ####
 
-
-    ############# With old lib, modified to work properly with ESPhome up to 2024.6.3 , prior to OpenDTU v24.9.26 #############
-    cg.add_library("SPI", None)  ### Works with arduino v2.0.x no more from arduino v3.1.x... 
+    cg.add_library("SPI", None)
     cg.add_library("CMT2300A", None, "https://github.com/SeByDocKy/esphome-CMT2300A") # -> without SPImanager framework...
     cg.add_library("Hoymiles-lib", None, "https://github.com/SeByDocKy/Hoymiles-lib")
     cg.add_library("Hoymiles", None, "https://github.com/SeByDocKy/esphome-hoymiles-main") ## former version without SPImanager ####
