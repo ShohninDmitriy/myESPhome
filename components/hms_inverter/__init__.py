@@ -55,6 +55,7 @@ CONF_PALEVEL = "palevel"
 CONF_REACHABLE = "reachable"
 CONF_PRODUCING = "producing"
 CONF_RESTART = "restart"
+CONF_FULL_POWER_STARTUP = "full_power_startup"
 
 CONF_POWER = "power"
 CONF_ENERGY = "energy"
@@ -66,6 +67,7 @@ ICON_WIFI = "mdi:wifi-arrow-up-down"
 
 CHANNEL_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(_chan_cls),
+    
     cv.Optional(CONF_POWER): sensor.sensor_schema(
         unit_of_measurement="W",
         accuracy_decimals=0,
@@ -102,6 +104,7 @@ CHANNEL_SCHEMA = cv.Schema({
 INVERTER_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(_inv_cls),
     cv.Required(CONF_SERIAL_NO): cv.string,
+    cv.Optional(CONF_FULL_POWER_STARTUP, default=True): cv.boolean,
     cv.Optional(CONF_RSSI): sensor.sensor_schema(
                 unit_of_measurement=UNIT_DECIBEL_MILLIWATT,
                 accuracy_decimals=0,
@@ -232,16 +235,20 @@ async def to_code(config):
         await cg.register_component(inv_var, inv_conf)
         cg.add(var.add_inverter(inv_var))
 
+        if CONF_FULL_POWER_STARTUP in inv_conf:
+            cg.add(inv_var.set_full_power_startup(inv_conf[CONF_FULL_POWER_STARTUP]))
+            
         if CONF_RSSI in inv_conf:
             cg.add(inv_var.set_rssi(await sensor.new_sensor(inv_conf[CONF_RSSI])))
         if CONF_LIMIT_PERCENT in inv_conf:        
-            cg.add(inv_var.set_limit_percent_number(await number.new_number(inv_conf[CONF_LIMIT_PERCENT], min_value=0, max_value=100, step=2)))
+            cg.add(inv_var.set_limit_percent_number(await number.new_number(inv_conf[CONF_LIMIT_PERCENT], min_value=2, max_value=100, step=1)))
+        if CONF_LIMIT_ABSOLUTE in inv_conf:
+            cg.add(inv_var.set_limit_absolute_number(await number.new_number(inv_conf[CONF_LIMIT_ABSOLUTE], min_value=15, max_value=2000, step=10)))    
         if CONF_PALEVEL in inv_conf: 
             # n = await number.new_number(inv_conf[CONF_PALEVEL], min_value=-10, max_value=20, step=1)
             # cg.add(n.set_parent(inv_var))
             cg.add(inv_var.set_palevel_number(await number.new_number(inv_conf[CONF_PALEVEL], min_value=-10, max_value=20, step=1)))    
-        if CONF_LIMIT_ABSOLUTE in inv_conf:
-            cg.add(inv_var.set_limit_absolute_number(await number.new_number(inv_conf[CONF_LIMIT_ABSOLUTE], min_value=0, max_value=2000, step=20)))
+        
         if CONF_PERCENT_OUTPUT in inv_conf:
             conf = inv_conf[CONF_PERCENT_OUTPUT]
             out = cg.new_Pvariable(conf[CONF_ID])
@@ -263,4 +270,7 @@ async def to_code(config):
     if CONF_GPIO2 in config[CONF_PINS]:
       cg.add(var.set_gpio2(await cg.gpio_pin_expression(config[CONF_PINS][CONF_GPIO2])))
     if CONF_GPIO3 in config[CONF_PINS]:
-      cg.add(var.set_gpio3(await cg.gpio_pin_expression(config[CONF_PINS][CONF_GPIO3])))  
+      cg.add(var.set_gpio3(await cg.gpio_pin_expression(config[CONF_PINS][CONF_GPIO3])))
+
+    # if CONF_FULL_POWER in 
+    #  cg.add(var.set_gp8413(config[CONF_GP8413])) 

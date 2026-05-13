@@ -1,0 +1,245 @@
+#pragma once
+
+#include "esphome/core/defines.h"
+#include "esphome/core/component.h"
+#include "esphome/core/preferences.h"
+#include "esphome/core/hal.h"
+#include "esphome/components/number/number.h"
+#include "esphome/core/automation.h"
+#include "esphome/core/helpers.h"
+#include "esphome/components/output/float_output.h"
+#include "esphome/components/sensor/sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/switch/switch.h"
+#include "esphome/components/time/real_time_clock.h"
+
+
+namespace esphome {
+namespace dualpidpcm {
+	
+class DUALPIDPCMComponent : public Component{
+
+
+ SUB_SWITCH(activation)
+ SUB_SWITCH(manual_override)
+ SUB_SWITCH(pid_mode)
+ SUB_SWITCH(reverse)
+
+
+ SUB_NUMBER(setpoint)
+ SUB_NUMBER(starting_battery_voltage)
+ SUB_NUMBER(kp)
+ SUB_NUMBER(ki)
+ SUB_NUMBER(kd)
+
+ SUB_NUMBER(kp_charging)
+ SUB_NUMBER(ki_charging)
+ SUB_NUMBER(kd_charging)
+ SUB_NUMBER(kp_discharging)
+ SUB_NUMBER(ki_discharging)
+ SUB_NUMBER(kd_discharging)
+
+ SUB_NUMBER(output_min_charging)
+ SUB_NUMBER(output_max_charging)
+ SUB_NUMBER(output_min_discharging)
+ SUB_NUMBER(output_max_discharging)
+
+ public:
+  
+  void setup() override;
+  void dump_config() override;
+  
+  void set_input_sensor(sensor::Sensor *input_sensor) {this->input_sensor_ = input_sensor; }
+  void set_battery_voltage_sensor(sensor::Sensor *battery_voltage_sensor) {this->battery_voltage_sensor_ = battery_voltage_sensor; }
+  void set_device_charging_output(output::FloatOutput *output) {this->device_charging_output_ = output; }
+  void set_device_discharging_output(output::FloatOutput *output) {this->device_discharging_output_ = output; }
+  void set_discharge_charge_switch(switch_::Switch *sw) {this->discharge_charge_switch_ = sw;}
+  void set_onoff_switch(switch_::Switch *sw) {this->onoff_switch_ = sw;}
+  void set_current_min_charging_register(float current){this->current_min_charging_ = current;}
+  void set_current_min_discharging_register(float current){this->current_min_discharging_ = current;}
+  void set_charging_level(float level);
+  void set_discharging_level(float level);
+   
+  void pid_update();
+  
+  void add_on_pid_computed_callback(std::function<void()> &&callback) {
+    pid_computed_callback_.add(std::move(callback));
+  }
+
+  float O_to_Oc(float O);
+  float O_to_Od(float O);
+  float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v);};
+
+  
+  void set_activation(bool enable) {this->current_activation_ = enable;}
+  bool get_activation(void){return this->current_activation_;}
+  void set_manual_override(bool enable) {this->current_manual_override_ = enable;}
+  bool get_manual_override(void){return this->current_manual_override_;}
+  void set_pid_mode(bool enable) {this->current_pid_mode_ = enable;}
+  bool get_pid_mode(void){return this->current_pid_mode_;}
+  void set_reverse(bool enable) {this->current_reverse_ = enable;}
+  bool get_reverse(void){return this->current_reverse_;}
+
+
+
+  void set_setpoint(float value) {this->current_setpoint_ = value;}
+  float get_setpoint(void){return this->current_setpoint_;}
+  
+  void set_starting_battery_voltage(float value) {this->current_starting_battery_voltage_ = value;}
+  float get_starting_battery_voltage(void){return this->current_starting_battery_voltage_;}
+
+  void set_kp(float value) {this->current_kp_ = value;}
+  float get_kp(void){return this->current_kp_;}
+  void set_ki(float value) {this->current_ki_ = value;}
+  float get_ki(void){return this->current_ki_;}
+  void set_kd(float value) {this->current_kd_ = value;}
+  float get_kd(void){return this->current_kd_;}
+  
+  void set_kp_charging(float value) {this->current_kp_charging_ = value;}
+  float get_kp_charging(void){return this->current_kp_charging_;}
+  void set_ki_charging(float value) {this->current_ki_charging_ = value;}
+  float get_ki_charging(void){return this->current_ki_charging_;}
+  void set_kd_charging(float value) {this->current_kd_charging_ = value;}
+  float get_kd_charging(void){return this->current_kd_charging_;}
+  
+  void set_kp_discharging(float value) {this->current_kp_discharging_ = value;}
+  float get_kp_discharging(void){return this->current_kp_discharging_;}
+  void set_ki_discharging(float value) {this->current_ki_discharging_ = value;}
+  float get_ki_discharging(void){return this->current_ki_discharging_;}
+  void set_kd_discharging(float value) {this->current_kd_discharging_ = value;}
+  float get_kd_discharging(void){return this->current_kd_discharging_;}
+  
+  void set_output_min_charging(float value) {this->current_output_min_charging_ = value;}
+  float get_output_min_charging(void){return this->current_output_min_charging_;}
+  void set_output_max_charging(float value) {this->current_output_max_charging_ = value;}
+  float get_output_max_charging(void){return this->current_output_max_charging_;}
+
+  void set_output_min_discharging(float value) {this->current_output_min_discharging_ = value;}
+  float get_output_min_discharging(void){return this->current_output_min_discharging_;}
+  void set_output_max_discharging(float value) {this->current_output_max_discharging_ = value;}
+  float get_output_max_discharging(void){return this->current_output_max_discharging_;}
+  
+  float get_error(void) { return this->current_error_; }
+  float get_output(void) { return this->current_output_; }
+  float get_output_charging(void) { return this->current_output_charging_; }
+  float get_output_discharging(void) { return this->current_output_discharging_; }  
+  float get_input(void)  { return this->current_input_; }
+
+  float get_offcharge(void) {return this->offcharge_;}
+  float get_offdischarge(void) {return this->offdischarge_;}
+
+
+
+  bool get_deadband(void){return this->current_deadband_;}
+  bool get_swap(void){return this->current_swap_;}
+
+   
+  
+
+ protected:
+  uint32_t last_time_ = 0;
+  float dt_;
+  float error_ = 0.0f;
+  float previous_error_ = 0.0f;
+  // float output_charging_ = 0.0f;
+  // float output_discharging_ = 0.0f;
+
+  float previous_output_ = 0.5f;
+  float previous_output_charging_ = 0.0f;
+  float previous_output_discharging_ = 0.0f;
+
+  float integral_= 0.0f; 
+  float derivative_ = 0.0f;
+  float current_min_charging_ = 5.0f;
+  float current_min_discharging_ = 5.0f;
+
+  float Pmin_charging = 5.0f*51.2f;
+  float Pmin_discharging = 5.0f*51.2f;
+  float Pdeadband_ = 5.5f*51.2f;
+
+  
+  float current_battery_voltage_ = 54.0f;
+  float current_device_output_charging_ = 0.0f;
+  float current_device_output_discharging_ = 0.0f;
+  
+  sensor::Sensor *input_sensor_;
+  sensor::Sensor *battery_voltage_sensor_;
+  output::FloatOutput *device_charging_output_; 
+  output::FloatOutput *device_discharging_output_;
+  switch_::Switch  *discharge_charge_switch_;
+  switch_::Switch  *onoff_switch_;
+    
+  CallbackManager<void()> pid_computed_callback_;
+
+  float current_error_ = 0.0f;
+  float current_output_charging_ = 0.0f;
+  float current_output_discharging_ = 0.0f;
+  float current_input_ = 0.0f;
+  float current_output_ = 0.5f;
+ 
+  bool current_activation_ = false;
+  bool current_manual_override_ = false;
+  bool current_pid_mode_ = false;
+  bool current_reverse_ = false;
+
+
+  float current_setpoint_ = 0.0f;
+  float current_starting_battery_voltage_ = 51.0f;
+
+  float current_kp_          = 3.0f;
+  float current_ki_          = 0.0f;
+  float current_kd_          = 0.0f;
+   
+  float current_kp_charging_ = 3.0f;
+  float current_ki_charging_ = 0.0f;
+  float current_kd_charging_ = 0.0f;
+  
+  float current_kp_discharging_ = 3.0f;
+  float current_ki_discharging_ = 0.0f;
+  float current_kd_discharging_ = 0.0f;  
+  
+  float current_output_max_charging_ = 1.0f;
+  float current_output_min_charging_ = 0.0f;
+
+  float current_output_max_discharging_ = 1.0f;
+  float current_output_min_discharging_ = 0.0f;
+
+  bool current_deadband_                = false;
+  bool current_swap_                    = false;
+
+  int offcharge_                        = 0;
+  int offdischarge_                     = 0;
+  uint32_t mode_start_time_             = 0;
+ 
+
+  float lb_             = 0.02f;
+  float ub_             = 0.02f;
+  float oneutral_       = 0.5f;
+  float olb_;
+  float oub_;
+
+  float output_min_      = 0.0f;
+  float output_max_      = 1.0f;
+
+  float o_hysteresis_    = 0.02f;
+
+  int previous_mode_     = 0;
+  int current_mode_      = 0; // 0 <=> idle, 1<-> charge, 2 <-> discharge
+
+  bool current_onoff_    = false; 
+  bool previous_activation_ = false;
+  // int new_mode_          = 0;
+
+  // typedef enum {
+  //   MODE_IDLE,       // Ni charge, ni décharge (zone morte)
+  //   MODE_CHARGE,     // Chargement batterie  (O ∈ [0.0 – 0.5[)
+  //   MODE_DISCHARGE   // Décharge batterie    (O ∈ ]0.5 – 1.0])
+  // } ConverterMode_;
+
+};
+		
+ }  // namespace dualpidpcm
+}  // namespace esphome
+
+
+

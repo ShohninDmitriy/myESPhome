@@ -71,7 +71,10 @@ SUB_NUMBER(output_max_discharging)
   void set_device_discharging_output(output::FloatOutput *output) {this->device_discharging_output_ = output; }
   void set_r48_general_switch(switch_::Switch *sw) {this->r48_general_switch_ = sw;}
   void set_producing_binary_sensor(binary_sensor::BinarySensor *bs) {this->producing_binary_sensor_ = bs;}
-  
+  void set_charging_level(float level);
+  void set_discharging_level(float level);
+
+  // void activation_handle();
   void pid_update();
   
   void add_on_pid_computed_callback(std::function<void()> &&callback) {
@@ -150,7 +153,10 @@ SUB_NUMBER(output_max_discharging)
   float get_output_discharging(void) { return this->current_output_discharging_; }  
   float get_target(void) { return this->current_target_; }
   float get_epoint(void) { return this->current_epoint_; }
+  float get_mode(void) {return this->current_mode_;}
 #endif
+
+ bool get_deadband(void){return this->current_deadband_;}
 
  protected:
   uint32_t last_time_ = 0;
@@ -158,22 +164,33 @@ SUB_NUMBER(output_max_discharging)
   float error_ = 0.0f;
   float previous_error_ = 0.0f;
   float output_ = 0.5f;
+  float previous_output_ = 0.5f;
   float output_charging_ = 0.0f;
   float output_discharging_ = 0.0f;
-  float previous_output_ = 0.5f;
   float previous_output_charging_ = 0.0f;
   float previous_output_discharging_ = 0.0f;
   float integral_= 0.0f; 
   float derivative_ = 0.0f;
   
   float current_charging_epoint_ = 50.0f; // 0.5f;
-  float current_absorbing_epoint_ = 2.0f; // 0.2f;
-  float current_floating_epoint_ = 0.0f;// 0.0f;
+  float current_absorbing_epoint_ = 50.0f; //2.0f; // 0.2f;
+  float current_floating_epoint_ = 50.0f; // 0.0f;// 0.0f;
   
   float current_input_ = 0.0f;
   float current_battery_voltage_ = 54.0f;
   float current_device_output_charging_ = 0.0f;
   float current_device_output_discharging_ = 0.0f;
+
+  float current_min_charging_      = 2.5f;
+  float current_min_discharging_   = 0.1f;
+
+  
+  int previous_mode_               = 0;
+  bool previous_activation_        = false;
+  bool current_deadband_           = false;
+  float o_hysteresis_              = 0.02f;
+  uint32_t mode_start_time_        = 0;
+   
   
   sensor::Sensor *input_sensor_;
   sensor::Sensor *battery_voltage_sensor_;
@@ -184,21 +201,20 @@ SUB_NUMBER(output_max_discharging)
   
   CallbackManager<void()> pid_computed_callback_;
 
-#ifdef USE_SENSOR
   float current_error_ = 0.0f;
   float current_output_ = 0.0f;
-  float current_output_charging_ = 0.0f;
-  float current_output_discharging_ = 0.0f;
+  float current_output_charging_ = 0.00f;
+  float current_output_discharging_ = 0.00f;
   float current_target_ = 0.0f;
   float current_epoint_ = 50.0f;
-#endif   
+  int current_mode_     = 0;
+
 
 #ifdef USE_SWITCH  
   bool current_activation_ = false;
   bool current_manual_override_ = false;
   bool current_pid_mode_ = false;
   bool current_reverse_ = false;
-  // bool current_r48_ = false;
 #endif  
   
 #ifdef USE_NUMBER

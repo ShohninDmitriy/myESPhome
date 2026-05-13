@@ -4,6 +4,7 @@ namespace esphome {
 namespace hms_inverter {
 
 #define TAG "HMS"
+#define HMS_MIN 2.0f
 
 size_t EsphLogPrint::write(uint8_t value) {
     if (value == 10) return 1; // Skip new line
@@ -131,6 +132,7 @@ void HmsInverter::set_limit_absolute_number(AbsoluteNumber* number) {
 }
 
 void HmsInverter::loop() {
+    float percent;
     if (this->inverter_ == nullptr) return;
     auto check_updated = [](Parser* parser, uint32_t value) {
         return (parser->getLastUpdate() > 0) && (parser->getLastUpdate() != value); 
@@ -199,12 +201,17 @@ void HmsInverter::loop() {
        this->palevel_number_->publish_state(level);
      }
      if (this->limit_percent_number_ != nullptr) {
-        float percent = this->inverter_->SystemConfigPara()->getLimitPercent();
-        this->limit_percent_number_->publish_state(percent);
+        percent = this->inverter_->SystemConfigPara()->getLimitPercent();
+        if(this->full_power_startup_){
+          this->limit_percent_number_->publish_state(percent);
+        }
+        else{
+          this->limit_percent_number_->publish_state(HMS_MIN);
+        }
         // limit_percent_number_->publish_state(100);
      }
      if (this->limit_absolute_number_ != nullptr) {
-        auto max_power = this->inverter_->DevInfo()->getMaxPower();
+        auto max_power = percent*this->inverter_->DevInfo()->getMaxPower();
         // limit_absolute_number_->publish_state((connected && (max_power > 0))? percent * max_power / 100.0: NAN);
         this->limit_absolute_number_->publish_state(max_power);
         // limit_absolute_number_->publish_state(1000); 

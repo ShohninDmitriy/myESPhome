@@ -270,7 +270,7 @@ async def to_code(config):
 
   if kp_charging_config := config.get(CONF_KP_CHARGING):
         n = await number.new_number(
-            kp_charging_config, min_value=0.0, max_value=10.0, step=0.1
+            kp_charging_config, min_value=0.0, max_value=10.0, step=0.01
         )
         await cg.register_component(n, kp_charging_config)
         await cg.register_parented(n, dualpid_component)
@@ -278,7 +278,7 @@ async def to_code(config):
   
   if ki_charging_config := config.get(CONF_KI_CHARGING):
         n = await number.new_number(
-            ki_charging_config, min_value=0.0, max_value=10.0, step=0.1
+            ki_charging_config, min_value=0.0, max_value=10.0, step=0.01
         )
         await cg.register_component(n, ki_charging_config)
         await cg.register_parented(n, dualpid_component)
@@ -286,7 +286,7 @@ async def to_code(config):
 
   if kd_charging_config := config.get(CONF_KD_CHARGING):
         n = await number.new_number(
-            kd_charging_config, min_value=0.0, max_value=10.0, step=0.1
+            kd_charging_config, min_value=0.0, max_value=10.0, step=0.01
         )
         await cg.register_component(n, kd_charging_config)
         await cg.register_parented(n, dualpid_component)
@@ -294,7 +294,7 @@ async def to_code(config):
         
   if kp_discharging_config := config.get(CONF_KP_DISCHARGING):
         n = await number.new_number(
-            kp_discharging_config, min_value=0.0, max_value=10.0, step=0.1
+            kp_discharging_config, min_value=0.0, max_value=10.0, step=0.01
         )
         await cg.register_component(n, kp_discharging_config)
         await cg.register_parented(n, dualpid_component)
@@ -302,7 +302,7 @@ async def to_code(config):
   
   if ki_discharging_config := config.get(CONF_KI_DISCHARGING):
         n = await number.new_number(
-            ki_discharging_config, min_value=0.0, max_value=10.0, step=0.1
+            ki_discharging_config, min_value=0.0, max_value=10.0, step=0.01
         )
         await cg.register_component(n, ki_discharging_config)
         await cg.register_parented(n, dualpid_component)
@@ -310,7 +310,7 @@ async def to_code(config):
 
   if kd_discharging_config := config.get(CONF_KD_DISCHARGING):
         n = await number.new_number(
-            kd_discharging_config, min_value=0.0, max_value=10.0, step=0.1
+            kd_discharging_config, min_value=0.0, max_value=10.0, step=0.01
         )
         await cg.register_component(n, kd_discharging_config)
         await cg.register_parented(n, dualpid_component)
@@ -334,7 +334,7 @@ async def to_code(config):
 
   if output_min_charging_config := config.get(CONF_OUTPUT_MIN_CHARGING):
         n = await number.new_number(
-            output_min_charging_config, min_value=0.0, max_value=100.0, step=1.0
+            output_min_charging_config, min_value=0.0, max_value=100.0, step=0.5
         )
         await cg.register_component(n, output_min_charging_config)
         await cg.register_parented(n, dualpid_component)
@@ -342,7 +342,7 @@ async def to_code(config):
 
   if output_max_charging_config := config.get(CONF_OUTPUT_MAX_CHARGING):
         n = await number.new_number(
-            output_max_charging_config, min_value=0.0, max_value=100.0, step=1.0
+            output_max_charging_config, min_value=0.0, max_value=100.0, step=0.5
         )
         await cg.register_component(n, output_max_charging_config)
         await cg.register_parented(n, dualpid_component)
@@ -350,7 +350,7 @@ async def to_code(config):
 
   if output_min_discharging_config := config.get(CONF_OUTPUT_MIN_DISCHARGING):
         n = await number.new_number(
-            output_min_discharging_config, min_value=0.0, max_value=100.0, step=1.0
+            output_min_discharging_config, min_value=0.0, max_value=100.0, step=0.5
         )
         await cg.register_component(n, output_min_discharging_config)
         await cg.register_parented(n, dualpid_component)
@@ -358,7 +358,7 @@ async def to_code(config):
 
   if output_max_discharging_config := config.get(CONF_OUTPUT_MAX_DISCHARGING):
         n = await number.new_number(
-            output_max_discharging_config, min_value=0.0, max_value=100.0, step=1.0
+            output_max_discharging_config, min_value=0.0, max_value=100.0, step=0.5
         )
         await cg.register_component(n, output_max_discharging_config)
         await cg.register_parented(n, dualpid_component)
