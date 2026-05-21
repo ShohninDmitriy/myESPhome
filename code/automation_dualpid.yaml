@@ -1,20 +1,71 @@
 interval:
+  - interval: ${automation_time_interval_fast}    
+    then:
+    - if:    ############## if start at 100%  -----> 2% ##############"
+         condition:
+           and:
+             # - lambda: |-
+             #    return ( !id(${automation_reachable}).has_state() );
+             - binary_sensor.is_on: ${automation_reachable}
+             - binary_sensor.is_off: ${automation_producing}
+             - binary_sensor.is_on: ${automation_hms_100}
+             - binary_sensor.is_on: ${automation_rssi_available}
+             - switch.is_off: ${automation_activation}
+            
+         then:
+           # - number.set:
+           #     id: ${automation_combined_percent_power_number}
+           #     value: 2
+           - output.set_level:
+               id: ${automation_output_combined}
+               level: '2%'
+           # - fan.turn_on:
+           #     id: ${automation_hms_fan_id}
+           #     speed: 2
+
+    - if:  ############## if start at 2% & P=0W  -----> 2%,10*#mppt W ##############"
+         condition:
+           and:
+             # - lambda: |-
+             #    return ( !id(${automation_reachable}).has_state() );
+             - binary_sensor.is_on: ${automation_reachable}
+             - binary_sensor.is_off: ${automation_producing}
+             - binary_sensor.is_on: ${automation_hms_2}
+             - binary_sensor.is_on: ${automation_hms_0w}
+             - binary_sensor.is_on: ${automation_rssi_available}
+             - switch.is_off: ${automation_activation}  
+         then:
+           # - number.set:
+           #     id: ${automation_percent_power_id}
+           #     value: '2%'
+           - output.set_level:
+               id: ${automation_output_combined}
+               level: '2%'
+           # - switch.turn_on: ${automation_hms_witness}
+           # - number.set:
+           #     id: ${automation_combined_percent_power_number}
+           #     value: 2
+           # - delay: 1s
+           # - switch.turn_off: ${automation_hms_witness}
+               
+
   - interval: ${automation_time_interval}    
     then:
-    - if:
+    - if:  ############## if !reachable -> turn_off actvation  ##############"
          condition:
            and:
              - lambda: |-
                 return ( !id(${automation_reachable}).has_state() ); 
          then:
            - switch.turn_off: ${automation_activation}
-    - if:
+    - if: ############## if reachable but no rssi -> turn_off actvation  ##############"
          condition:
            and:
-             - lambda: |-
-                return ( id(${automation_reachable}).has_state() );
+             # - lambda: |-
+             #    return ( id(${automation_reachable}).has_state() );
              - binary_sensor.is_on: ${automation_reachable}
-             - binary_sensor.is_off: ${automation_producing}     
+             # - binary_sensor.is_off: ${automation_producing}
+             - binary_sensor.is_off: ${automation_rssi_available}
          then:
            - switch.turn_off: ${automation_activation}
            - button.press: ${automation_restart}
