@@ -2,10 +2,10 @@
 #include "esphome/core/log.h"
 
 #define SET_OUTPUT_DELAY       0   // 50
-#define ONOFF_DELAY            0   // 50
+#define ONOFF_DELAY            10   // 50
 #define CHARGE_DISCHARGE_DELAY 0   // 50
 #define DEADBAND_FACTOR        1.02
-#define STARTUP_INHIBIT_MS     5000
+#define STARTUP_INHIBIT_MS     6000
 
 namespace esphome {
 namespace dualpidpcm {
@@ -13,8 +13,8 @@ namespace dualpidpcm {
 static const char *const TAG = "dualpidpcm";
 
 static const float coeffP = 0.00001f;
-static const float coeffI = 0.001f;
-static const float coeffD = 0.001f;
+static const float coeffI = 0.00001f;
+static const float coeffD = 0.00001f;
 
 
 // ── Helpers O_to_Oc / O_to_Od ────────────────────────────────────────────────
@@ -36,33 +36,37 @@ float DUALPIDPCMComponent::O_to_Od(float O) {
 // manuellement avant l'appel). Cela évite de saturer le canal radio HMS/OpenDTU.
 
 void DUALPIDPCMComponent::set_charging_level(float level) {
-    if (level != this->previous_output_charging_) {
-        if (level > 0.0f) {
+    float quantized = std::round(level * 1000.0f) / 1000.0f;
+    // float quantized = level;
+     if (quantized != this->previous_output_charging_) {
+        if (quantized > 0.0f) {
             // N'envoyer une consigne active que si le switch est allumé
-            if ((this->onoff_switch_ != nullptr) && (this->onoff_switch_->state == true)) {
-                this->device_charging_output_->set_level(level);
+              if ((this->onoff_switch_ != nullptr) && (this->onoff_switch_->state == true)) {
+                this->device_charging_output_->set_level(quantized);
                 delay(SET_OUTPUT_DELAY);
-                ESP_LOGD(TAG, "set_charging_level: %.4f", level);
-            }
+                ESP_LOGD(TAG, "set_charging_level: %.4f", quantized);
+              }
         }
         // Pas de set_level pour level == 0 : c'est le onoff_switch qui coupe
-    }
-    this->current_output_charging_  = level;
-    this->previous_output_charging_ = level;
+     }
+    this->current_output_charging_  = quantized;
+    this->previous_output_charging_ = quantized;
 }
 
 void DUALPIDPCMComponent::set_discharging_level(float level) {
-    if (level != this->previous_output_discharging_) {
-        if (level > 0.0f) {
+    float quantized = std::round(level * 1000.0f) / 1000.0f;
+    //float quantized = level;
+    if (quantized != this->previous_output_discharging_) {
+        if (quantized > 0.0f) {
             if ((this->onoff_switch_ != nullptr) && (this->onoff_switch_->state == true)) {
-                this->device_discharging_output_->set_level(level);
+                this->device_discharging_output_->set_level(quantized);
                 delay(SET_OUTPUT_DELAY);
-                ESP_LOGD(TAG, "set_discharging_level: %.4f", level);
+                ESP_LOGD(TAG, "set_discharging_level: %.4f", quantized);
             }
         }
-    }
-    this->current_output_discharging_  = level;
-    this->previous_output_discharging_ = level;
+     }
+    this->current_output_discharging_  = quantized;
+    this->previous_output_discharging_ = quantized;
 }
 
 
@@ -105,6 +109,19 @@ void DUALPIDPCMComponent::setup() {
 
     this->olb_ = this->oneutral_ - this->lb_;
     this->oub_ = this->oneutral_ + this->ub_;
+
+    // Initialization of volatile registers (36,37,38)
+
+    // if (this->discharge_charge_switch_ != nullptr) {
+    //   this->discharge_charge_switch_->publish_state(true);
+    //   this->discharge_charge_switch_->turn_on();
+    //  delay(CHARGE_DISCHARGE_DELAY);
+    // }
+    
+    // this->set_charging_level(0.0f);
+    // delay(SET_OUTPUT_DELAY);
+    // this->set_discharging_level(0.0f);
+    
 
     this->pid_computed_callback_.call();
 
@@ -196,7 +213,7 @@ void DUALPIDPCMComponent::pid_update() {
         this->current_deadband_ = false;
     }
 
-    this->offcharge_ = this->previous_mode_;
+    this->current_mode_ = this->previous_mode_;
 
     // ── Désactivation ─────────────────────────────────────────────────
     if (!this->current_activation_) {
@@ -221,6 +238,9 @@ void DUALPIDPCMComponent::pid_update() {
             }
             ESP_LOGI(TAG, "activation is off -> Turn off onoff, turn on discharge_charge");
         }
+        
+        // this->set_charging_level(0.0f);
+        // this->set_discharging_level(0.0f);
 
         this->last_time_                   = now;
         this->previous_error_              = this->error_;
@@ -346,23 +366,28 @@ void DUALPIDPCMComponent::pid_update() {
            if (this->current_output_ > this->oub_) {
              this->current_mode_ = 2;
            }
-           // Retour IDLE : seulement si output_charging est au minimum ET deadband
-           // (le PID a déjà ramené la charge à zéro avant de considérer l'arrêt)
            else if (this->current_deadband_ && (this->current_output_charging_ <= this->current_output_min_charging_ + 0.01f) && !in_startup) {
-               this->current_mode_ = 0;
-            }
+            this->current_mode_ = 0;
+           }
+            // ← Nouveau : sortie franche si error franchement positif
+           // et output_charging déjà au minimum (le PID a fait son travail)
+           else if (!in_startup && (this->current_output_charging_ <= this->current_output_min_charging_ + 0.01f) && (epsi > this->Pmin_discharging * DEADBAND_FACTOR)) {
+             this->current_mode_ = 0;   // → IDLE, qui basculera en DISCHARGE
+           }
            break;
 
         case 2:  // DISCHARGE
-           // Sortie directe vers CHARGE si output franchit olb_
-          if (this->current_output_ < this->olb_) {
-            this->current_mode_ = 1;
-          }
-          // Retour IDLE : seulement si output_discharging est au minimum ET deadband
-          else if (this->current_deadband_ && (this->current_output_discharging_ <= this->current_output_min_discharging_ + 0.01f) && !in_startup) {
+           if (this->current_output_ < this->olb_) {
+             this->current_mode_ = 1;
+           }
+           else if (this->current_deadband_ && (this->current_output_discharging_ <= this->current_output_min_discharging_ + 0.01f) && !in_startup) {
              this->current_mode_ = 0;
-          }
-          break;
+           }
+           // ← Nouveau : sortie franche si error franchement négatif
+           else if (!in_startup && (this->current_output_discharging_ <= this->current_output_min_discharging_ + 0.01f) && (epsi < this->Pmin_charging * DEADBAND_FACTOR)) {
+            this->current_mode_ = 0;   // → IDLE, qui basculera en CHARGE
+           }
+           break;
      }
 
     // ── Transition de mode ────────────────────────────────────────────
@@ -464,21 +489,25 @@ void DUALPIDPCMComponent::pid_update() {
             this->discharge_charge_switch_->turn_on();
             this->discharge_charge_switch_->publish_state(true);
             delay(ONOFF_DELAY);
-            ESP_LOGI(TAG, "Turn on discharge_charge");
+            ESP_LOGI(TAG, "Turn on charge mode");
         }
         else if ((this->current_output_discharging_ > this->current_output_min_discharging_) && (this->discharge_charge_switch_->state == true)) {
             this->discharge_charge_switch_->turn_off();
             this->discharge_charge_switch_->publish_state(false);
             delay(CHARGE_DISCHARGE_DELAY);
-            ESP_LOGI(TAG, "Turn off discharge_charge");
+            ESP_LOGI(TAG, "Turn on discharge mode");
         }
     }
 
     // ── Envoi des consignes via les helpers ───────────────────────────
     // set_charging_level / set_discharging_level ne transmettent que si
     // la valeur a changé → évite de saturer le canal radio HMS/OpenDTU
-    this->set_charging_level(this->current_output_charging_);
-    this->set_discharging_level(this->current_output_discharging_);
+    if(this->current_output_charging_  > 0.0f){    
+      this->set_charging_level(this->current_output_charging_);
+    }
+    if(this->current_output_discharging_  > 0.0f){     
+      this->set_discharging_level(this->current_output_discharging_);
+    }
 
     // ── Gestion onoff_switch ──────────────────────────────────────────
     if (this->onoff_switch_ != nullptr) {

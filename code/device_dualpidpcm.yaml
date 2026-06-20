@@ -2,6 +2,34 @@ external_components:
   - source: "github://SeByDocKy/myESPhome/"
     components: [dualpidpcm]
     refresh: 0s
+
+
+globals:    
+  - id: ${dualpidpcm_name}_exported_energy_yesterday_global
+    type: float
+    restore_value: yes
+    
+  - id: ${dualpidpcm_name}_imported_energy_yesterday_global
+    type: float
+    restore_value: yes
+
+time:
+  - platform: homeassistant #sntp
+    id: !extend my_time
+  
+    on_time:
+      - seconds: 59
+        minutes: 59
+        hours: 23
+        then:  
+          - globals.set:
+              id: ${dualpidpcm_name}_exported_energy_yesterday_global
+              value: !lambda return ( id(${dualpidpcm_name}_exported_energy_yesterday_global) =  float( id(${dualpidpcm_name}_exported_energy_today).state) ); 
+                
+          - globals.set:
+              id: ${dualpidpcm_name}_imported_energy_yesterday_global
+              value: !lambda return ( id(${dualpidpcm_name}_imported_energy_yesterday_global) =  float( id(${dualpidpcm_name}_imported_energy_today).state) );
+
     
 dualpidpcm:
   - id: ${dualpidpcm_id}
@@ -27,6 +55,83 @@ sensor:
       - sliding_window_moving_average:
           window_size: ${dualpidpcm_windows_size}
           send_every: 1
+
+  - platform: template
+    name: ${name}_${dualpidpcm_name}_exported_power
+    id: ${dualpidpcm_name}_exported_power
+    unit_of_measurement: 'W'
+    accuracy_decimals: 1
+    update_interval: ${dualpidpcm_template_update}
+    icon: mdi:counter
+    lambda: |-
+      if ((id(${dualpidpcm_name}_activation).state) && float(id(${dualpidpcm_name}_input_smoothed).state) < 0.0f){
+        return ( - id(${dualpidpcm_name}_input_smoothed).state );   
+      }
+      else {
+        return 0.0f;
+      }
+
+  - platform: total_daily_energy
+    name: ${name}_${dualpidpcm_name}_exported_energy_today
+    id: ${dualpidpcm_name}_exported_energy_today
+    power_id: ${dualpidpcm_name}_exported_power
+    unit_of_measurement: 'kWh'
+    accuracy_decimals: 1
+    method: trapezoid
+    filters:
+       # Multiplication factor from W to kW is 0.001
+       - multiply: 0.001
+    icon: mdi:counter
+    
+  - platform: template
+    name: ${name}_${dualpidpcm_name}_exported_energy_yesterday
+    id: ${dualpidpcm_name}_exported_energy_yesterday
+    unit_of_measurement: 'kWh'
+    accuracy_decimals: 1
+    icon: mdi:counter
+    update_interval: ${dualpidpcm_template_update}
+    lambda: |-
+      return ( id(${dualpidpcm_name}_exported_energy_yesterday).state = id(${dualpidpcm_name}_exported_energy_yesterday_global) );
+
+
+  - platform: template
+    name: ${name}_${dualpidpcm_name}_imported_power
+    id: ${dualpidpcm_name}_imported_power
+    unit_of_measurement: 'W'
+    accuracy_decimals: 1
+    update_interval: ${dualpidpcm_template_update}
+    icon: mdi:counter
+    lambda: |-
+      if ((id(${dualpidpcm_name}_activation).state) && float(id(${dualpidpcm_name}_input_smoothed).state) > 0.0f){
+        return ( id(${dualpidpcm_name}_input_smoothed).state );   
+      }
+      else {
+        return 0.0f;
+      }
+
+  - platform: total_daily_energy
+    name: ${name}_${dualpidpcm_name}_imported_energy_today
+    id: ${dualpidpcm_name}_imported_energy_today
+    power_id: ${dualpidpcm_name}_imported_power
+    unit_of_measurement: 'kWh'
+    accuracy_decimals: 1
+    method: trapezoid
+    filters:
+       # Multiplication factor from W to kW is 0.001
+       - multiply: 0.001
+    icon: mdi:counter
+    
+  - platform: template
+    name: ${name}_${dualpidpcm_name}_imported_energy_yesterday
+    id: ${dualpidpcm_name}_imported_energy_yesterday
+    unit_of_measurement: 'kWh'
+    accuracy_decimals: 1
+    icon: mdi:counter
+    update_interval: ${dualpidpcm_template_update}
+    lambda: |-
+      return ( id(${dualpidpcm_name}_imported_energy_yesterday).state = id(${dualpidpcm_name}_imported_energy_yesterday_global) );     
+
+
           
   - platform: dualpidpcm
     dualpidpcm_id: ${dualpidpcm_id}
@@ -40,19 +145,16 @@ sensor:
       name: ${name}_${dualpidpcm_name}_output_charging
     output_discharging: 
       name: ${name}_${dualpidpcm_name}_output_discharging
-    offcharge:
-      name: ${name}_${dualpidpcm_name}_offcharge
-    offdischarge:
-      name: ${name}_${dualpidpcm_name}_offdischarge  
-      
+    mode:
+      name: ${name}_${dualpidpcm_name}_mode
+   
 
 binary_sensor:
   - platform: dualpidpcm
     dualpidpcm_id: ${dualpidpcm_id}
     deadband:
       name: ${name}_${dualpidpcm_name}_deadband
-    swap:
-      name: ${name}_${dualpidpcm_name}_swap  
+
   
 switch:
   - platform: dualpidpcm
@@ -82,23 +184,7 @@ number:
     ki: 
       name: ${name}_${dualpidpcm_name}_ki
     kd: 
-      name: ${name}_${dualpidpcm_name}_kd
-
-  
-    # kp_charging: 
-    #   name: ${name}_${dualpidpcm_name}_kp_charging
-    # ki_charging: 
-    #   name: ${name}_${dualpidpcm_name}_ki_charging
-    # kd_charging: 
-    #   name: ${name}_${dualpidpcm_name}_kd_charging
-    # kp_discharging: 
-    #   name: ${name}_${dualpidpcm_name}_kp_discharging
-    # ki_discharging: 
-    #   name: ${name}_${dualpidpcm_name}_ki_discharging
-    # kd_discharging: 
-    #   name: ${name}_${dualpidpcm_name}_kd_discharging
-
-      
+      name: ${name}_${dualpidpcm_name}_kd      
     output_min_charging: 
       name: ${name}_${dualpidpcm_name}_output_min_charging
     output_max_charging: 
