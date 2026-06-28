@@ -159,7 +159,7 @@ void RYLR998Component::setup() {
     // [H2] CORRECTION : stocker en uint32_t (déclaré dans .h).
     //      L'ancienne valeur uint16_t débordait silencieusement pour les SF élevés.
     this->lora_air_time_ = static_cast<uint32_t>((Tpreamble + Tpayload) * 1000.0f);
-    ESP_LOGCONFIG(TAG, "RYLR998 computed LoRa air time: %u ms", this->lora_air_time_);
+    ESP_LOGCONFIG(TAG, "RYLR998 computed LoRa air time: %lu ms", this->lora_air_time_);
   }
 }
 
@@ -210,7 +210,7 @@ void RYLR998Component::dump_config() {
   ESP_LOGCONFIG(TAG, "  Preamble Length: %d", this->preamble_length_);
   ESP_LOGCONFIG(TAG, "  Network ID: %d",      this->network_id_);
   ESP_LOGCONFIG(TAG, "  TX Power: %d dBm",    this->tx_power_);
-  ESP_LOGCONFIG(TAG, "  LoRa air time: %u ms", this->lora_air_time_);
+  ESP_LOGCONFIG(TAG, "  LoRa air time: %lu ms", this->lora_air_time_);
 
   if (this->is_failed()) {
     ESP_LOGE(TAG, "Communication with RYLR998 failed!");

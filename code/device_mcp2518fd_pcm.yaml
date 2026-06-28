@@ -11,7 +11,7 @@ external_components:
     refresh: 0s  
   
 esphome:
-  on_boot: #!extend
+  on_boot: 
     - priority: -100
       then:
         - delay: 2s
@@ -56,29 +56,14 @@ canbus:
     use_extended_id: true
     cs_pin: ${pcm_cs_pin}
     can_id: 0x0A
-    bit_rate: 250kbps
-    mode: 'NORMAL' #'LOOPBACK_INT' #'CLASSIC' # CLASSIC <=> Only non FD trames, NORMAL <=> both FD & non-FD accepted
+    bit_rate: 125kbps #125kbps #125kbps #
+    mode: 'CLASSIC' #'NORMAL' #'LOOPBACK_INT' #'CLASSIC' # CLASSIC <=> Only non FD trames, NORMAL <=> both FD & non-FD accepted
     data_rate: '10MHz'
-    clock: '40MHz'
-    # mcp_clock: '20MHz' 
+    clock: '20MHz'   # '40MHz'
     canfd_enabled: false  # set true to enable CAN FD frames (payload up to 64 bytes)
     can_data_rate: 250kbps    # data-phase bit rate (only applies when canfd_enabled: true)
 
     on_frame:
-
-      # Grid Mode Response - 0x010A0002  # non-volatile register -> EEPROM  replaced with A038
-      # - can_id: 0x010A${pcm_address}02 #0x010A0002
-      #   use_extended_id: true
-      #   then:
-      #     - lambda: |-
-      #         uint8_t grid_mode = x[2];
-      #         id(grid_mode_readback).publish_state(grid_mode);
-      #         if (grid_mode == 0) {
-      #           id(grid_mode_select).publish_state("Charge mode");
-      #         } else if (grid_mode == 1) {
-      #           id(grid_mode_select).publish_state("Discharge mode");
-      #         }
-      #         ESP_LOGD("canbus", "Grid Mode Readback: %d", grid_mode);
 
       # SN Code Response - 0x010A0005
       - can_id: 0x010A${pcm_address}05 #0x010A0005
@@ -197,16 +182,6 @@ canbus:
               id(charging_current_number).publish_state(charge_current_value / 10.0f);
               ESP_LOGD("canbus", "Charge Current Readback: %.1fA", charge_current_value/10.0);        
       
-      # Discharge Parameters Response - 0x010A0032
-      # - can_id: 0x010A${pcm_address}32 #0x010A0032
-      #   use_extended_id: true
-      #   then:
-      #     - lambda: |-
-      #         uint16_t discharge_current_value = (x[5] << 8) | x[4];
-      #         id(discharging_current_readback).publish_state(discharge_current_value / 10.0f);
-      #         id(discharging_current_number).publish_state(discharge_current_value / 10.0f);
-      #         ESP_LOGD("canbus", "Discharge Current Readback: %.1fA", discharge_current_value/10.0);
-
       - can_id: 0x010A${pcm_address}37
         use_extended_id: true
         then:
@@ -1099,7 +1074,7 @@ fan:
     name: ${name}_${pcm_name}_discharging_current
     output: discharging_current_output
     icon: mdi:battery-arrow-down
-
+ 
 # Number Controls for Parameters
 number:
   # Charging Voltage (48V system example)
@@ -1659,17 +1634,6 @@ text_sensor:
       if (freq == 50) return {"50 Hz"};
       else if (freq == 60) return {"60 Hz"};
       else return {"Unknown"};
-
-  # - platform: template
-  #   id: ac_voltage_setting_text
-  #   name: ${pcm_name}_ac_voltage_setting_text
-  #   icon: mdi:sine-wave
-  #   update_interval: 1s
-  #   lambda: |-
-  #     int volt = id(ac_voltage_setting_readback).state;
-  #     if (volt == 2) return {"230V"};
-  #     else if (volt == 0) return {"220 Hz"};
-  #     else return {"Unknown"};    
   
   - platform: template
     id: program_version
@@ -1681,51 +1645,11 @@ text_sensor:
     name: ${name}_${pcm_name}_sn
     icon: mdi:barcode
 
+
+
 # Interval updates to request status
+
 interval:
-
-  # - interval: ${pcm_interval}
-  #   then:
-  # #     # Request all status updates periodically
-  #     - canbus.send:
-  #         canbus_id: ${pcm_canbus_id}
-  #         # can_id: 0x03000A51   
-  #         can_id: 0x03${pcm_address}0A51
-  #         use_extended_id: true
-  #         # data: [${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-  #         data: !lambda |-
-  #           return {${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  #     - delay: ${delay_interval}
-      
-  #     - canbus.send:
-  #         canbus_id: ${pcm_canbus_id}
-  #         # can_id: 0x03000A52
-  #         can_id: 0x03${pcm_address}0A52
-  #         use_extended_id: true
-  #         # data: [${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-  #         data: !lambda |-
-  #           return {${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  #     - delay: ${delay_interval}
-      
-  #     - canbus.send:
-  #         canbus_id: ${pcm_canbus_id}
-  #         can_id: 0x03000A53
-  #         use_extended_id: true
-  #         # data: [${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-  #         data: !lambda |-
-  #           return {${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  #     - delay: ${delay_interval}
-      
-  #     - canbus.send:
-  #         canbus_id: ${pcm_canbus_id}
-  #         can_id: 0x03000A54
-  #         use_extended_id: true
-  #         # data: [${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-  #         data: !lambda |-
-  #           return {${pcm_address}, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  #     - delay: ${delay_interval}      
-
-
 # Query configuration parameters periodically (every 30s)
   - interval: ${pcm_interval}
     then:

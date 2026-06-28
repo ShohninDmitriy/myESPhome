@@ -46,6 +46,23 @@ static constexpr UBaseType_t UVC_TASK_PRIO            = 17;
 static constexpr BaseType_t  USB_LIB_CORE             = 1;
 static constexpr BaseType_t  UVC_CONNECT_CORE         = 1;
 
+#elif CONFIG_IDF_TARGET_ESP32S31
+
+// --- ESP32-S31 (USB High-Speed) -------------------------------------------
+// Stacks : 6 KB pour la lib, 8 KB pour la tâche connect/UVC
+// (le driver HS charge plus de contexte en isochronous haute bande passante)
+static constexpr uint32_t    USB_LIB_TASK_STACK     = 6144;
+static constexpr uint32_t    UVC_CONNECT_TASK_STACK  = 8192;
+// Priorités hautes pour respecter les micro-frames à 125 µs
+// (configMAX_PRIORITIES = 25 sur IDF ; on reste sous 20 pour laisser
+//  de la marge au watchdog IDF qui tourne à priorité 22)
+static constexpr UBaseType_t USB_LIB_TASK_PRIO       = 18;
+static constexpr UBaseType_t UVC_TASK_PRIO            = 17;
+// Affinité : Core 1 (Core 0 = main loop ESPHome + WiFi via esp32_hosted)
+static constexpr BaseType_t  USB_LIB_CORE             = tskNO_AFFINITY;
+static constexpr BaseType_t  UVC_CONNECT_CORE         = tskNO_AFFINITY;
+
+
 #elif CONFIG_IDF_TARGET_ESP32S3
 
 // --- ESP32-S3 (USB Full-Speed) --------------------------------------------
@@ -337,16 +354,18 @@ void UsbUvcCamera::dump_config() {
       "USB UVC Camera:\n"
       "  Cible           : %s\n"
       "  Name            : %s\n"
-      "  USB VID:PID     : 0x%04X:0x%04X  stream_idx=%u\n"
+      "  USB VID:PID     : 0x%04X:0x%04X  stream_idx=%lu\n"
       "  Resolution      : %ux%u @ %u fps\n"
       "  Max interval    : %u ms\n"
-      "  Idle interval   : %u ms\n"
-      "  Frame buffers   : %u   URBs: %u x %u B\n"
+      "  Idle interval   : %lu ms\n"
+      "  Frame buffers   : %u   URBs: %u x %lu B\n"
       "  Task USB lib    : prio=%u  stack=%u B\n"
       "  Task UVC conn   : prio=%u  stack=%u B\n"
       "  Downsampling    : 1 frame / %u",
 #if CONFIG_IDF_TARGET_ESP32P4
       "ESP32-P4 (USB HS)",
+#elif CONFIG_IDF_TARGET_ESP32S31
+      "ESP32-S31 (USB HS)",  
 #elif CONFIG_IDF_TARGET_ESP32S3
       "ESP32-S3 (USB FS)",
 #else
@@ -642,7 +661,7 @@ void UsbUvcCamera::publish_format_list_from_cache_() {
   std::vector<std::string> opts;
   char buf[32];
   for (const auto &e : entries) {
-    snprintf(buf, sizeof(buf), "%ux%u@%ufps", e.w, e.h, e.fps);
+    snprintf(buf, sizeof(buf), "%ux%u@%lufps", e.w, e.h, e.fps);
     opts.push_back(buf);
     ESP_LOGI(TAG, "  MJPEG: %s", buf);
   }
