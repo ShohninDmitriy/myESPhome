@@ -171,6 +171,9 @@ switch:
     reverse: 
       name: ${name}_${dualpidpcm_name}_reverse
       id:  ${dualpidpcm_name}_reverse
+    feedforward: 
+      name: ${name}_${dualpidpcm_name}_feedforward
+      id:  ${dualpidpcm_name}_feedforward
       
 number:
   - platform: dualpidpcm
@@ -193,3 +196,5 @@ number:
       name: ${name}_${dualpidpcm_name}_output_min_discharging
     output_max_discharging: 
       name: ${name}_${dualpidpcm_name}_output_max_discharging
+    feedforward_threshold:
+      name: ${name}_${dualpidpcm_name}_feedforward_threshold
