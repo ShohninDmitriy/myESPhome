@@ -49,14 +49,6 @@ static const CalibrationPoint ff_table[] = {
     {3630.0f, 0.500f}   // Extrapolation 100% décharge
 };
 
-// static const CalibrationPoint ff_table[] = {
-//     {0.0f,    0.000f},
-//     {900.0f,  0.125f},  // À vérifier : 900W correspondent-ils bien à 0.125 ?
-//     {1800.0f, 0.250f},  // À vérifier : 1800W correspondent-ils bien à 0.250 ?
-//     {2700.0f, 0.375f},  // À vérifier : 2700W correspondent-ils bien à 0.375 ?
-//     {3600.0f, 0.500f}   // Puissance max
-// };
-
 static const int ff_table_size = sizeof(ff_table) / sizeof(ff_table[0]);
 
 
@@ -453,7 +445,8 @@ void DUALPIDPCMComponent::pid_update() {
 
     if(this->current_feedforward_){
       if(trigger_ff && !in_startup && std::abs(pending_jump) > 0.001f){
-        tmp += pending_jump;
+        // tmp += pending_jump;
+        tmp += (pending_jump / 2.0f);  
         tmp = std::min(std::max(tmp, this->output_min_), this->output_max_);
       }   
         // if (!in_startup && !this->ff_locked_ && std::abs(pending_jump) > 0.001f) {
