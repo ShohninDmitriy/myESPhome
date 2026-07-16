@@ -19,7 +19,7 @@
 #define ADAPTIVE_MARGIN_STEP      0.02f   // +2% d'hystérésis à chaque détection
 #define ADAPTIVE_MARGIN_MAX       0.08f   // plafond +8%
 #define ADAPTIVE_MARGIN_DECAY_MS  180000  // 3 min de calme -> on relâche
-#define DELAY_FEEDFORWARD         3000
+#define DELAY_FEEDFORWARD         4000
 
 namespace esphome {
 namespace dualpidpcm {
@@ -445,9 +445,11 @@ void DUALPIDPCMComponent::pid_update() {
 
     if(this->current_feedforward_){
       if(trigger_ff && !in_startup && std::abs(pending_jump) > 0.001f){
-        // tmp += pending_jump;
-        tmp += (pending_jump / 2.0f);  
+        tmp += pending_jump;
+        // tmp += (pending_jump / 2.0f);  
         tmp = std::min(std::max(tmp, this->output_min_), this->output_max_);
+        this->previous_error_ = this->error_;  
+        // this->previous_output_ = 0.0f;
       }   
         // if (!in_startup && !this->ff_locked_ && std::abs(pending_jump) > 0.001f) {
         //     tmp += pending_jump;
