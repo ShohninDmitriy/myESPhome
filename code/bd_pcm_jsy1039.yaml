@@ -1,12 +1,12 @@
 substitutions:
   name: "bd_pcm"
-  name_controller: "lora_meter"
-  device_description: "Bidirectional battery AC coupling "
+  device_description: "Bidirectional battery AC coupling with direct power readings"
   my_hours: '23'
   my_minute: '59'
   my_second: '59'
-  baud_rate: 115200 #9600 ### JKPBBMS baudrate : if UART1 protocol = 001, set baud_rate=115200, if UART1 protocol = 013, set baud_rate=9600
-  bms_modbus_address: '1'
+  baud_rate: 9600 #UART1 protocol = 013, set baud_rate=9600
+  powermeter_modbus_address: '1'
+  bms_modbus_address: '2'
   
 esphome:
   name: ${name}
@@ -63,56 +63,17 @@ uart:
 modbus:
   - id: modbus_rtu
     uart_id: uart_0
-    send_wait_time: 100ms
+    # type: RTU
+    send_wait_time: 200ms
     turnaround_time: 100ms
 
 spi:
 
- #### when connected with the B2B connector (no change vs direct wiring)
   - id: shared_spi
     mosi_pin: GPIO09
     miso_pin: GPIO08
     clk_pin: GPIO07
     interface: spi3
-
-sx126x:
-  id: sx1262
-  spi_id: shared_spi
-  
-  #### when connected with tge B2B connector #####
-  
-  dio1_pin: GPIO39   
-  busy_pin: GPIO40
-  rst_pin: GPIO42
-  cs_pin: GPIO41
-  
-  pa_power: 10
-  bandwidth: 31_3kHz #125_0kHz
-  crc_enable: true
-  frequency: 868000000
-  modulation: LORA
-  hw_version: sx1262
-  rf_switch: true
-  sync_value: [0x14, 0x24]
-  preamble_size: 8
-  spreading_factor: 9
-  coding_rate: CR_4_6
-  tcxo_voltage: 1_8V
-  tcxo_delay: 5ms
-  data_rate: '10MHz'
-  on_packet:
-    then:
-      - lambda: |-
-          ESP_LOGD("lambda", "packet %s", format_hex(x).c_str());
-          ESP_LOGD("lambda", "rssi %.2f", rssi);
-          ESP_LOGD("lambda", "snr %.2f", snr);
-
-packet_transport:
-  platform: sx126x
-  update_interval: '1500ms'
-  providers:
-    - name: ${name_controller}
-      encryption: !secret encryption_key
 
 debug:
   update_interval: 5s
@@ -126,18 +87,6 @@ sensor:
     
   - platform: uptime
     id: uptime_sec
-
-  - platform: packet_transport
-    id:  ${name}_power_imported
-    name: ${name}_power_imported
-    provider: ${name_controller}
-    # remote_id: jsy1039_power
-    remote_id: power
-    internal: false
-    device_class: power
-    unit_of_measurement: 'W'
-    icon: mdi:power
-    accuracy_decimals: 1
      
   - platform: debug
     free:
@@ -178,6 +127,19 @@ text_sensor:
     
               
 packages: 
+
+  powermeter:
+    url: https://github.com/SeByDocKy/myESPhome/
+    ref: main
+    refresh: 0s
+    files:
+      - path: 'code/device_jsy1039.yaml' 
+        vars:
+          powermeter_name: 'jsy1039'
+          powermeter_modbus_id: 'modbus_rtu'
+          powermeter_address: ${powermeter_modbus_address}
+          powermeter_update_interval: '1500ms'  #'2000ms' for HMS
+          powermeter_template_update: '1500ms'
                     
   bms: 
     url: https://github.com/SeByDocKy/pvbrain2/
@@ -188,7 +150,7 @@ packages:
         vars:
           bms_name: 'jkpbbms'
           bms_modbus_id: 'modbus_rtu'
-          bms_modbus_address: ${bms_modbus_address}  #dip switches ON OFF OFF OFF
+          bms_modbus_address: ${bms_modbus_address}  #dip switches OFF ON OFF OFF
           bms_update_interval: '1500ms'
           bms_template_update: '3s'
           bms_text_update: '60s'
@@ -222,7 +184,7 @@ packages:
         vars:
           dualpidpcm_id: 'pid_id'
           dualpidpcm_name: 'pid'
-          dualpidpcm_input_id: 'bd_pcm_power_imported'
+          dualpidpcm_input_id: 'jsy1039_power'
           dualpidpcm_battery_voltage_id: 'jkpbbms_battery_voltage' #'battery_voltage_from_ha'
           dualpidpcm_charging_output_id: 'charging_current_output'
           dualpidpcm_discharging_output_id: 'discharging_current_output'

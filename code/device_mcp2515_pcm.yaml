@@ -57,8 +57,8 @@ canbus:
     can_id: 0x0A
     bit_rate: 250kbps
     mode: NORMAL
-    data_rate: '10MHz'
-    # data_rate: '5MHz'
+    # data_rate: '10MHz'
+    data_rate: '4MHz'
 
     on_frame:
 
@@ -1588,7 +1588,7 @@ switch:
       - canbus.send:
           canbus_id: ${pcm_canbus_id}
           # can_id: 0x02000A02
-          can_id: 0x02${pcm_address}0A02
+          can_id: 0x02${pcm_address}0A38
           use_extended_id: true
           data: !lambda |-
             return {${pcm_address}, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
