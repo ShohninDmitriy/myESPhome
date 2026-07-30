@@ -100,7 +100,8 @@ CONFIG_SCHEMA = (
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await modbus.register_modbus_device(var, config)
+    # await modbus.register_modbus_device(var, config)
+    await modbus.register_modbus_client_device(var, config)
 
     if CONF_VOLTAGE in config:
         conf = config[CONF_VOLTAGE]
@@ -140,6 +141,7 @@ async def to_code(config):
             cv.Required(CONF_ID): cv.use_id(JSY1039),
         }
     ),
+	synchronous=False,
 )
 
 
@@ -157,6 +159,7 @@ async def reset_energy_to_code(config, action_id, template_arg, args):
           cv.Required(CONF_NEW_BAUDRATE): cv.templatable(cv.int_range(min=3, max=8)),
 		}
 	),
+	synchronous=False,
 )
 	
 async def writecommunicationsetting_to_code(config, action_id, template_arg, args):

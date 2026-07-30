@@ -5,7 +5,7 @@
 
 namespace esphome::dualpidpcm {
 
-class FeedforwardthresholdNumber : public number::Number, public Component, public Parented<DUALPIDPCMComponent> {
+class SelfConsumptionNumber : public number::Number, public Component, public Parented<DUALPIDPCMComponent> {
  public:
   void setup() override;
 
@@ -13,5 +13,6 @@ class FeedforwardthresholdNumber : public number::Number, public Component, publ
   void control(float value) override;
   ESPPreferenceObject pref_;
 };
-}  // namespace esphome
+
+}  // namespace esphome::dualpidpcm
 

@@ -1,5 +1,5 @@
 substitutions:
-  name: "bd"
+  name: "bd_lora"
   name_controller: "lora_meter"
   device_description: "Bidirectional battery AC coupling "
   my_hours: '23'
@@ -10,7 +10,7 @@ substitutions:
 esphome:
   name: ${name}
   comment: ${device_description}
-  min_version: 2025.10.1
+  min_version: 2026.7.0
   platformio_options:
     # build_flags: -DBOARD_HAS_PSRAM
     board_build.arduino.memory_type: qio_opi
@@ -33,8 +33,11 @@ esp32:
   board: seeed_xiao_esp32s3
   variant: esp32s3
   cpu_frequency: 240Mhz
+  toolchain: platformio
   framework:
     type: arduino
+    
+    # version: dev
     # version: latest
     # type: esp-idf
     # version: 5.5.2
@@ -124,7 +127,7 @@ sx126x:
 
 packet_transport:
   platform: sx126x
-  update_interval: '1500ms'
+  update_interval: '2000ms' #'2500ms' #'1500ms'
   providers:
     - name: ${name_controller}
       encryption: !secret encryption_key
@@ -148,6 +151,7 @@ sensor:
     name: ${name}_power_imported
     provider: ${name_controller}
     remote_id: jsy1039_power
+    # remote_id: power
     internal: false
     device_class: power
     unit_of_measurement: 'W'
@@ -168,7 +172,8 @@ sensor:
 binary_sensor:
   - platform: status
     name: ${name}_esp_status
-    
+                
+        
   - platform: template
     id: hms_reachable
     name: ${name}_hms_reachable
@@ -184,6 +189,7 @@ binary_sensor:
       and:
         - binary_sensor.is_on: hms1_1000_producing
         # - binary_sensor.is_on: hms2_1000_producing
+
 
   - platform: template
     id: hms_rssi_available
@@ -225,8 +231,76 @@ binary_sensor:
         - lambda: |-
             return (id(hms1_1000_absolute_power_limit).state==0.0f );
         # - lambda: |-
-            # return (id(hms2_1000_absolute_power_limit).state==0.0f );  
-    
+            # return (id(hms2_1000_absolute_power_limit).state==0.0f );
+
+
+  # - platform: template
+    # id: hms_auto1
+    # name: ${name}_hms_auto1
+    # condition: 
+      # and:
+        # - binary_sensor.is_on: hms1_1000_reachable
+        # - binary_sensor.is_off: hms1_1000_producing
+        # - binary_sensor.is_on: hms_is_100
+        # - binary_sensor.is_on: hms_rssi_available
+        # - switch.is_off: pid_activation
+
+
+  # - platform: template
+    # id: hms_auto2
+    # name: ${name}_hms_auto2
+    # condition: 
+      # and:
+        # - binary_sensor.is_on: hms1_1000_reachable
+        # - binary_sensor.is_off: hms1_1000_producing
+        # - binary_sensor.is_on: hms_is_2
+        # - binary_sensor.is_on: hms_is_0w
+        # - binary_sensor.is_on: hms_rssi_available
+        # - switch.is_off: pid_activation
+        
+# number:
+  # - platform: template
+    # id: combined_percent_power_number
+    # name: ${name}_combined_percent_power_number
+    # min_value: 2
+    # max_value: 100
+    # step: 1
+    # optimistic: true
+    # icon: mdi:percent
+    # unit_of_measurement: '%'
+    # set_action:
+      # - number.set: 
+          # id: hms1_1000_percent_power_limit
+          # value: !lambda 'return x;'
+      # - number.set: 
+          # id: hms2_1000_percent_power_limit
+          # value: !lambda 'return x;'          
+            
+             
+text_sensor:
+  - platform: template
+    name: ${name}_uptime
+    lambda: |-
+      int seconds = (id(uptime_sec).state);
+      int days = seconds / (24 * 3600);
+      seconds = seconds % (24 * 3600); 
+      int hours = seconds / 3600;
+      seconds = seconds % 3600;
+      int minutes = seconds /  60;
+      seconds = seconds % 60;
+      if ( days ) {
+        return { (std::to_string(days) +"d " + std::to_string(hours) +"h " + std::to_string(minutes) +"m "+ std::to_string(seconds) +"s ").c_str() };
+      } else if ( hours ) {
+        return { (std::to_string(hours) +"h " + std::to_string(minutes) +"m "+ std::to_string(seconds) +"s ").c_str() };
+      } else if ( minutes ) {
+        return { (std::to_string(minutes) +"m "+ std::to_string(seconds) +"s ").c_str() };
+      } else {
+        return { (std::to_string(seconds) +"s ").c_str() };
+      }
+    icon: mdi:clock-start
+    update_interval: 113s  
+
+  
 button:
   - platform: restart
     name: ${name}_restart
@@ -240,6 +314,12 @@ button:
       
       
 switch:
+
+  # - platform: template
+    # id: hms_witness
+    # name: ${name}_hms_witness
+    # optimistic: true
+    
   - platform: template
     name: ${name}_general_r48_switch
     id: general_r48_switch
@@ -267,13 +347,13 @@ output:
    
 fan:
   - platform: speed
-    id: ${name}_output_combined_command
+    id: output_combined_command
     name: ${name}_output_combined_command
     output: output_combined
 
 hms_inverter:
   id: hoymiles_id
-  update_interval: '1500ms'#'1200ms'
+  update_interval: '2500ms' #'1500ms'#'1200ms'
   pins:
     cs: GPIO02
     fcs: GPIO03
@@ -303,8 +383,8 @@ packages:
         # vars:
           # hms_inverter_id: 'hoymiles_id'
           # hms_inverter_name: 'hms2_1000'
-          # hms_inverter_sn: !secret hms1000_sn2
-          # hms_inverter_full_power_startup: false
+          # hms_inverter_sn: !secret hms1000_sn2     
+          # hms_inverter_full_power_startup: false          
           
   # hms_inverter2: 
     # url: https://github.com/SeByDocKy/myESPhome/
@@ -315,8 +395,8 @@ packages:
         # vars:
           # hms_inverter_id: 'hoymiles_id'
           # hms_inverter_name: 'hms2_2000'
-          # hms_inverter_sn: !secret hms2000_sn1
-          # hms_inverter_full_power_startup: false
+          # hms_inverter_sn: !secret hms2000_sn1     
+          # hms_inverter_full_power_startup: false          
 
   emerson:
     url: https://github.com/SeByDocKy/myESPhome/
@@ -328,8 +408,8 @@ packages:
           emerson_name: 'r48'
           emerson_spid_id: 'shared_spi'
           emerson_cs_pin: 'GPIO06' #06
-          emerson_update_interval: '2s'
-          emerson_template_update_interval: '2s'
+          emerson_update_interval: '2000ms' #'2500ms'
+          emerson_template_update_interval: '2000ms' #'2500ms'
           
   modbus:
     url: https://github.com/SeByDocKy/pvbrain2/
@@ -403,7 +483,7 @@ packages:
         vars:
           dualpid_id: 'pid_id'
           dualpid_name: 'pid'
-          dualpid_input_id: 'bd_power'
+          dualpid_input_id: 'bd_lora_power'
           dualpid_battery_voltage_id: 'jkpbbms_battery_voltage' #'battery_voltage_from_ha'
           dualpid_charging_output_id: 'r48_max_current'
           dualpid_discharging_output_id: 'output_combined'
@@ -411,7 +491,7 @@ packages:
           dualpid_producing_id: 'hms_producing'
           dualpid_windows_size: '1'
           
-  automation:     ############### permet de (re)démarrer/synchroniser/éliminer le passage plus puissance automatiquement  pour la parte HMS   ######
+  automation:
     url: https://github.com/SeByDocKy/myESPhome/
     ref: main
     refresh: 0s
@@ -425,7 +505,7 @@ packages:
           automation_reachable: 'hms_reachable'
           automation_producing: 'hms_producing'
           automation_rssi_available: 'hms_rssi_available'
-          automation_hms_100: 'hms_is_100'
-          automation_hms_2: 'hms_is_2'
-          automation_hms_0w: 'hms_is_0w'
+          automation_hms_100: hms_is_100
+          automation_hms_2: hms_is_2
+          automation_hms_0w: hms_is_0w
           automation_restart: 'hms_restart'

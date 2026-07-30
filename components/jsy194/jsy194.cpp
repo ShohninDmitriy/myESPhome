@@ -1,8 +1,8 @@
 #include "jsy194.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace jsy194 {
+namespace esphome::jsy194 {
+// namespace jsy194 {
 
 static const char *const TAG = "jsy194";
 static const uint8_t JSY194_CMD_READ_IN_REGISTERS = 0x03;   // multiple registers
@@ -19,8 +19,12 @@ static const uint8_t JSY194_REGISTER_DATA_COUNT = 14;  // 14 x 32-bit data regis
 void JSY194::setup() { 
   ESP_LOGCONFIG(TAG, "Setting up JSY194..."); 
 }
-
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+void JSY194::on_response(std::span<const uint8_t> request_pdu, std::span<const uint8_t> response_pdu) {
+  auto data = modbus::helpers::server_pdu_payload(response_pdu);
+#else
 void JSY194::on_modbus_data(const std::vector<uint8_t> &data) {
+#endif
   if ((this->read_data_ == 1) & (data.size() < JSY194_REGISTER_DATA_COUNT*4)) {
     ESP_LOGW(TAG, "Invalid size for JSY194 data!");
     return;
@@ -147,9 +151,11 @@ void JSY194::on_modbus_data(const std::vector<uint8_t> &data) {
   }  
 }
 
-void JSY194::update() { 
-  this->send(JSY194_CMD_READ_IN_REGISTERS, JSY194_REGISTER_DATA_START , JSY194_REGISTER_DATA_COUNT*1); 
-}
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+void JSY194::update() { this->read_holding_registers(JSY194_REGISTER_DATA_START, JSY194_REGISTER_DATA_COUNT*1); }	
+#else
+void JSY194::update() { this->send(JSY194_CMD_READ_IN_REGISTERS, JSY194_REGISTER_DATA_START , JSY194_REGISTER_DATA_COUNT*1);  }
+#endif
 
 void JSY194::dump_config() {
   ESP_LOGCONFIG(TAG, "JSY194:");
@@ -198,7 +204,11 @@ void JSY194::write_register04(uint8_t new_address , uint8_t new_baudrate) {
     cmd.push_back(new_address);
     cmd.push_back(new_baudrate);
     ESP_LOGD(TAG, "JSY194: writing values into 0x04 register: address=%d, baudrate = %d", new_address_, new_baudrate); 
+    #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+    this->send_pdu(cmd);	
+    #else
     this->send_raw(cmd);
+    #endif
   } 
   else{
 	 ESP_LOGD(TAG, "JSY194: attempt to write bad values into 0x04 : Address=%d, baudrate = %d", new_address_, new_baudrate); 
@@ -221,7 +231,11 @@ void JSY194::reset_energy1pos() {
   cmdpos.push_back(0x00);
   cmdpos.push_back(0x00);
   ESP_LOGD(TAG, "JSY194: sending reset Energy1Pos command"); 
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->send_pdu(cmdpos);	
+  #else
   this->send_raw(cmdpos);
+  #endif
 }  
 void JSY194::reset_energy1neg() {
   this->read_data_ = 5;
@@ -239,7 +253,11 @@ void JSY194::reset_energy1neg() {
   cmdneg.push_back(0x00);
   cmdneg.push_back(0x00);  
   ESP_LOGD(TAG, "JSY194: sending reset Energy1Neg command"); 
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->send_pdu(cmdneg);	
+  #else
   this->send_raw(cmdneg);
+  #endif
 }
 void JSY194::reset_energy2pos() {
   this->read_data_ = 6;
@@ -257,7 +275,11 @@ void JSY194::reset_energy2pos() {
   cmdpos.push_back(0x00);
   cmdpos.push_back(0x00);
   ESP_LOGD(TAG, "JSY194: sending reset Energy2Pos command"); 
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->send_pdu(cmdpos);	
+  #else
   this->send_raw(cmdpos);
+  #endif
 } 
 void JSY194::reset_energy2neg() {
   this->read_data_ = 7;
@@ -275,8 +297,12 @@ void JSY194::reset_energy2neg() {
   cmdneg.push_back(0x00);
   cmdneg.push_back(0x00);  
   ESP_LOGD(TAG, "JSY194: sending reset Energy2Neg command"); 
-  this->send_raw(cmdneg);  
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->send_pdu(cmdneg);	
+  #else
+  this->send_raw(cmdneg);
+  #endif  
 }
 
-}  // namespace jsy194
-}  // namespace esphome
+// }  // namespace jsy194
+}  // namespace esphome::jsy194

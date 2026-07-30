@@ -25,12 +25,25 @@ class DUALPIDPCMComponent : public Component{
  SUB_SWITCH(pid_mode)
  SUB_SWITCH(reverse)
  SUB_SWITCH(feedforward)
+ SUB_SWITCH(allow_charging)
+ SUB_SWITCH(allow_discharging)
 
+
+ 
 
  SUB_NUMBER(setpoint)
  SUB_NUMBER(feedforward_threshold)
- SUB_NUMBER(stopping_battery_voltage)
+ SUB_NUMBER(self_consumption)
  SUB_NUMBER(starting_battery_voltage)
+ SUB_NUMBER(stopping_battery_voltage)
+ SUB_NUMBER(discharge_self_consumption)
+ // ── Hystérésis start/stop (anti-chatter) ──────────────────────────────────
+ // Écart en W à ajouter au seuil d'arrêt (Pmin_charging/Pmin_discharging)
+ // pour obtenir le seuil de (re)démarrage. self_consumption/discharge_self_
+ // consumption positionnent le seuil d'ARRÊT (motivation physique) ; ces deux
+ // numbers positionnent l'écart avant REDÉMARRAGE (motivation anti-cyclage).
+ SUB_NUMBER(delta_idle_charging)
+ SUB_NUMBER(delta_idle_discharging)
  SUB_NUMBER(kp)
  SUB_NUMBER(ki)
  SUB_NUMBER(kd)
@@ -53,7 +66,6 @@ class DUALPIDPCMComponent : public Component{
   void set_onoff_switch(switch_::Switch *sw) {this->onoff_switch_ = sw;}
   void set_current_min_charging_register(float current){this->current_min_charging_ = current;}
   void set_current_min_discharging_register(float current){this->current_min_discharging_ = current;}
-  // void set_feedforward_threshold(float thresh){this->current_feedforward_threshold_ = thresh;}
   void set_charging_level(float level);
   void set_discharging_level(float level);
    
@@ -79,6 +91,10 @@ class DUALPIDPCMComponent : public Component{
   bool get_reverse(void){return this->current_reverse_;}
   void set_feedforward(bool enable) {this->current_feedforward_ = enable;}
   bool get_feedforward(void){return this->current_feedforward_;}
+  void set_allow_charging(bool enable) {this->current_allow_charging_ = enable;}
+  bool get_allow_charging(void){return this->current_allow_charging_;}
+  void set_allow_discharging(bool enable) {this->current_allow_discharging_ = enable;}
+  bool get_allow_discharging(void){return this->current_allow_discharging_;}
 
   void set_setpoint(float value) {this->current_setpoint_ = value;}
   float get_setpoint(void){return this->current_setpoint_;}
@@ -86,11 +102,26 @@ class DUALPIDPCMComponent : public Component{
   void set_feedforward_threshold(float value) {this->current_feedforward_threshold_ = value;}
   float get_feedforward_threshold(void){return this->current_feedforward_threshold_;}
   
+  void set_starting_battery_voltage(float value) {this->current_starting_battery_voltage_ = value;}
+  float get_starting_battery_voltage(void){return this->current_starting_battery_voltage_;}
+
   void set_stopping_battery_voltage(float value) {this->current_stopping_battery_voltage_ = value;}
   float get_stopping_battery_voltage(void){return this->current_stopping_battery_voltage_;}
 
-  void set_starting_battery_voltage(float value) {this->current_starting_battery_voltage_ = value;}
-  float get_starting_battery_voltage(void){return this->current_starting_battery_voltage_;}
+  // Autoconsommation à vide du convertisseur en décharge (W). Vient s'ajouter
+  // à la consommation mesurée de la maison pour déterminer le seuil réel
+  // Pmin_discharging (seuil d'ARRÊT) à partir duquel décharger devient
+  // réellement utile.
+  void set_self_consumption(float value) {this->current_self_consumption_ = value;}
+  float get_self_consumption(void){return this->current_self_consumption_;}
+
+  // Écart (W) entre le seuil d'ARRÊT et le seuil de REDÉMARRAGE, par direction.
+  // Pstart_charging    = Pmin_charging    - delta_idle_charging_
+  // Pstart_discharging = Pmin_discharging + delta_idle_discharging_
+  void set_delta_idle_charging(float value) {this->current_delta_idle_charging_ = value;}
+  float get_delta_idle_charging(void){return this->current_delta_idle_charging_;}
+  void set_delta_idle_discharging(float value) {this->current_delta_idle_discharging_ = value;}
+  float get_delta_idle_discharging(void){return this->current_delta_idle_discharging_;}
 
   void set_kp(float value) {this->current_kp_ = value;}
   float get_kp(void){return this->current_kp_;}
@@ -118,9 +149,6 @@ class DUALPIDPCMComponent : public Component{
   float get_mode(void) {return this->current_mode_;}
   bool get_deadband(void){return this->current_deadband_;}
 
-  // ── Anti-cyclage adaptatif ────────────────────────────────────────────────
-  float get_adaptive_margin(void){return this->adaptive_margin_;}
-
   // ── Bascule directe CHARGE<->DISCHARGE sans coupure onoff_switch_ ─────────
   bool get_pass_through(void){return this->pass_through_;}
   
@@ -139,7 +167,6 @@ class DUALPIDPCMComponent : public Component{
   float derivative_ = 0.0f;
   float current_min_charging_ = 5.0f;
   float current_min_discharging_ = 5.0f;
-  // float current_feedforward_threshold_ = 300.0f;
 
   float Pmin_charging = 1.0f*51.2f;
   float Pmin_discharging = 1.0f*51.2f;
@@ -174,9 +201,20 @@ class DUALPIDPCMComponent : public Component{
 
   float current_setpoint_ = 0.0f;
   float current_feedforward_threshold_ = 300.0f;
-  float current_stopping_battery_voltage_ = 51.0f;   // seuil bas (arrêt)
-  float current_starting_battery_voltage_ = 52.0f;   // seuil haut (redémarrage), doit rester > stopping
-  bool  undervoltage_lockout_             = false;   // état d'hystérésis latché
+  float current_starting_battery_voltage_ = 51.0f;
+
+  // Seuil bas de l'hystérésis de sous-tension : en dessous, on arrête
+  // (undervoltage_lockout_ = true) ; il faut remonter au-dessus de
+  // current_starting_battery_voltage_ pour relancer.
+  float current_stopping_battery_voltage_ = 49.5f;
+  bool  undervoltage_lockout_ = false;
+
+  // Autoconsommation à vide du convertisseur en décharge (W) — seuil d'ARRÊT.
+  float current_self_consumption_ = 30.0f;
+
+  // Écart (W) seuil d'ARRÊT -> seuil de REDÉMARRAGE, par direction.
+  float current_delta_idle_charging_    = 20.0f;
+  float current_delta_idle_discharging_ = 20.0f;
 
   float current_kp_          = 1.1f;
   float current_ki_          = 0.0f;
@@ -209,22 +247,10 @@ class DUALPIDPCMComponent : public Component{
 
   bool current_onoff_    = false; 
   bool previous_activation_ = false;
-  
-    
 
-  // ── Anti-cyclage adaptatif ────────────────────────────────────────────────
-  // Historique des N dernières transitions de mode (IDLE<->CHARGE/DISCHARGE).
-  // Si N transitions se produisent dans une fenêtre glissante trop courte,
-  // on élargit temporairement l'hystérésis effective (olb_eff/oub_eff)
-  // pour freiner le cyclage. La marge se relâche automatiquement après une
-  // période de calme.
-  static const uint8_t TRANSITION_HISTORY_SIZE = 4;
-  uint32_t transition_history_[TRANSITION_HISTORY_SIZE] = {0, 0, 0, 0};
-  uint8_t  transition_idx_   = 0;
-  float    adaptive_margin_  = 0.0f;   // marge additionnelle courante (0 = pas de cyclage détecté)
+  bool current_allow_charging_ = true;
+  bool current_allow_discharging_ = true;
 
-  void record_transition_(uint32_t now);
-  void decay_adaptive_margin_(uint32_t now);
 
   // ── Bascule directe CHARGE<->DISCHARGE ────────────────────────────────────
   // Le PCM gère électroniquement le sens (discharge_charge_switch_) sans
@@ -236,16 +262,6 @@ class DUALPIDPCMComponent : public Component{
   //                         et le prochain démarrage repasse par le freeze
   //                         STARTUP_INHIBIT_MS.
   bool pass_through_ = false;
-
-  // ── Anti-répétition du feedforward ────────────────────────────────────────
-  // Empêche le feedforward de se déclencher deux cycles consécutifs. Une
-  // grande erreur peut persister plusieurs cycles avant que le PID ne la
-  // résorbe ; sans ce verrou, le feedforward réappliquerait un saut
-  // supplémentaire à chaque cycle tant que delta_error reste au-dessus du
-  // seuil, ce qui sur-corrige la sortie. Le verrou se pose au cycle où le
-  // feedforward est réellement appliqué, et se relâche automatiquement au
-  // cycle suivant (fenêtre de blocage d'un seul cycle).
-  bool ff_locked_ = false;
   
   // typedef enum {
   //   MODE_IDLE,       // Ni charge, ni décharge (zone morte)

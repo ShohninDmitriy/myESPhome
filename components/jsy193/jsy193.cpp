@@ -1,8 +1,8 @@
 #include "jsy193.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace jsy193 {
+namespace esphome::jsy193 {
+// namespace jsy193 {
 
 static const char *const TAG = "jsy193";
 static const uint8_t JSY193_CMD_READ_IN_REGISTERS = 0x03;   // multiple registers
@@ -17,8 +17,12 @@ static const uint8_t JSY193_REGISTER_DATA_COUNT = 20;  // 20 x 16-bit data regis
 void JSY193::setup() { 
   ESP_LOGCONFIG(TAG, "Setting up JSY193..."); 
 }
-
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+void JSY193::on_response(std::span<const uint8_t> request_pdu, std::span<const uint8_t> response_pdu) {
+  auto data = modbus::helpers::server_pdu_payload(response_pdu);	
+#else
 void JSY193::on_modbus_data(const std::vector<uint8_t> &data) {
+#endif	
   if ((this->read_data_ == 1) & (data.size() < JSY193_REGISTER_DATA_COUNT*2)) {
     ESP_LOGW(TAG, "Invalid size for JSY193 data!");
     return;
@@ -126,9 +130,12 @@ void JSY193::on_modbus_data(const std::vector<uint8_t> &data) {
 	this->read_data_ = 1; 
   }  
 }
-
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+// void JSY193::update() { this->send(JSY193_CMD_READ_IN_REGISTERS, JSY193_REGISTER_DATA_START , JSY193_REGISTER_DATA_COUNT); }	
+void JSY193::update() { this->read_holding_registers(JSY193_REGISTER_DATA_START, JSY193_REGISTER_DATA_COUNT); }	
+#else
 void JSY193::update() { this->send(JSY193_CMD_READ_IN_REGISTERS, JSY193_REGISTER_DATA_START , JSY193_REGISTER_DATA_COUNT); }
-
+#endif
 void JSY193::dump_config() {
   ESP_LOGCONFIG(TAG, "JSY193:");
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
@@ -158,8 +165,12 @@ void JSY193::read_register04() {
   cmd.push_back(JSY193_REGISTER_SETTINGS_START);
   cmd.push_back(0x00);
   cmd.push_back(JSY193_REGISTER_SETTINGS_COUNT);
-  ESP_LOGD(TAG, "JSY193: reading values from 0x04 register"); 
+  ESP_LOGD(TAG, "JSY193: reading values from 0x04 register");
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->send_pdu(cmd);	
+  #else
   this->send_raw(cmd);
+  #endif
 }
 
 void JSY193::write_register04(uint8_t new_address , uint8_t new_baudrate) {
@@ -176,7 +187,11 @@ void JSY193::write_register04(uint8_t new_address , uint8_t new_baudrate) {
     cmd.push_back(new_address);
     cmd.push_back(new_baudrate);
     ESP_LOGD(TAG, "JSY193: writing values into 0x04 register: address=%d, baudrate = %d", new_address_, new_baudrate); 
+    #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+    this->send_pdu(cmd);	
+    #else
     this->send_raw(cmd);
+    #endif
   } 
   else{
 	 ESP_LOGD(TAG, "JSY193: attempt to write bad values into 0x04 : Address=%d, baudrate = %d", new_address_, new_baudrate); 
@@ -204,7 +219,11 @@ void JSY193::reset_energy1() {
   cmd.push_back(0x00);
   cmd.push_back(0x00);
   ESP_LOGD(TAG, "JSY193: sending reset Energy1 command"); 
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->send_pdu(cmd);	
+  #else
   this->send_raw(cmd);
+  #endif
 }
 void JSY193::reset_energy2() {
   this->read_data_ = 5;	
@@ -227,8 +246,12 @@ void JSY193::reset_energy2() {
   cmd.push_back(0x00);
   cmd.push_back(0x00);
   ESP_LOGD(TAG, "JSY193: sending reset Energy2 command"); 
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->send_pdu(cmd);	
+  #else
   this->send_raw(cmd);
+  #endif
 }
 
-}  // namespace jsy193
-}  // namespace esphome
+// }  // namespace jsy193
+}  // namespace esphome::jsy193
