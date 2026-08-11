@@ -1,10 +1,9 @@
 #pragma once
 
 #include "esphome/components/number/number.h"
+#include "esphome/core/version.h"
 
-namespace esphome {
-namespace rylr998 {
-
+namespace esphome::rylr998 {
 // Forward declaration du composant parent
 class RYLR998Component;
 
@@ -21,5 +20,4 @@ class RYLR998TxPowerNumber : public number::Number, public Component {
   ESPPreferenceObject pref_;
 };
 
-}  // namespace rylr998
-}  // namespace esphome
+}  // namespace esphome::rylr998

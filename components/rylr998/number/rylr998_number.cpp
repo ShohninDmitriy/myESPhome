@@ -2,15 +2,18 @@
 #include "../rylr998.h"
 #include "esphome/core/log.h"
 
-namespace esphome {
-namespace rylr998 {
+namespace esphome::rylr998 {
 
 static const char *const TAG = "rylr998.number";
 
 void RYLR998TxPowerNumber::setup() {
 
   uint8_t value;
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->pref_ = global_preferences->make_preference<uint8_t>(this->get_entity_key());
+  #else
   this->pref_ = global_preferences->make_preference<uint8_t>(this->get_object_id_hash());
+  #endif
   if (!this->pref_.load(&value)) value = this->parent_->get_tx_power();
   this->parent_->apply_tx_power(value);
   this->publish_state(value);
@@ -25,5 +28,4 @@ void RYLR998TxPowerNumber::control(float value) {
   this->publish_state(value);
 }
 
-}  // namespace rylr998
-}  // namespace esphome
+}  // namespace eesphome::rylr998
