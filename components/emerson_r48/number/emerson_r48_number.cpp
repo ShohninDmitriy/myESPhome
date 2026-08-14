@@ -1,5 +1,6 @@
 #include "emerson_r48_number.h"
 #include "esphome/core/log.h"
+#include "esphome/core/version.h"
 
 namespace esphome {
 namespace emerson_r48 {
@@ -12,7 +13,13 @@ void EmersonR48Number::setup() {
   float value;
   switch (this->functionCode_) {
     case SET_VOLTAGE_FUNCTION:
-      this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+      // this->pref_ = global_preferences->make_preference<float>(this->get_entity_key());
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());	
+      #else
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	  #endif
+      // this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
       if (!this->pref_.load(&value)) {
         value = this->parent_->get_current_output_voltage(); 
       }
@@ -21,7 +28,13 @@ void EmersonR48Number::setup() {
       break;
     
     case SET_CURRENT_FUNCTION:
-      this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+      // this->pref_ = global_preferences->make_preference<float>(this->get_entity_key());
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #else
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	  #endif
+      // this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
       if (!this->pref_.load(&value)) {
         value = this->parent_->get_current_max_output_current(); 
       }
@@ -30,7 +43,13 @@ void EmersonR48Number::setup() {
       break;
 
     case SET_INPUT_CURRENT_FUNCTION:
-      this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+      // this->pref_ = global_preferences->make_preference<float>(this->get_entity_key());
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #else
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	  #endif
+      // this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
       if (!this->pref_.load(&value)) {
         value = this->parent_->get_current_max_input_current(); 
       }
@@ -45,19 +64,37 @@ void EmersonR48Number::control(float value) {
     case SET_VOLTAGE_FUNCTION:
       parent_->set_output_voltage(value);
       this->publish_state(value);
-      this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+      // this->pref_ = global_preferences->make_preference<float>(this->get_entity_key());
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #else
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	  #endif
+      // this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
       this->pref_.save(&value);
       break;
     case SET_CURRENT_FUNCTION:
       parent_->set_max_output_current(value);
       this->publish_state(value);
-      this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+      // this->pref_ = global_preferences->make_preference<float>(this->get_entity_key());
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #else
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	  #endif
+      // this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
       this->pref_.save(&value);
       break;
     case SET_INPUT_CURRENT_FUNCTION:
       parent_->set_max_input_current(value);
       this->publish_state(value);
-      this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+      // this->pref_ = global_preferences->make_preference<float>(this->get_entity_key());
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+      #else
+	  this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	  #endif
+      // this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
       this->pref_.save(&value);
       break;
 

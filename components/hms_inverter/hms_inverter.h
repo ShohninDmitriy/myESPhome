@@ -4,6 +4,7 @@
 #include "esphome/core/application.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/output/float_output.h"
+#include "esphome/core/version.h"
 
 #include <Hoymiles.h>
 #include <Print.h>
@@ -54,7 +55,13 @@ class PalevelNumber : public esphome::number::Number, public Component {
 
         int8_t current_palevel_;
         esphome::CallbackManager<void(int8_t)> control_callback_;
+
+        #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+        // ESPPreferenceObject pref_ = global_preferences->make_preference<int8_t>(this->get_entity_key());
         ESPPreferenceObject pref_ = global_preferences->make_preference<int8_t>(this->get_object_id_hash());
+        #else
+	    ESPPreferenceObject pref_ = global_preferences->make_preference<int8_t>(this->get_object_id_hash());
+	    #endif
 
     public:
       // void set_parent(HmsInverter *parent) { this->parent_ = parent; }
@@ -69,7 +76,12 @@ class PalevelNumber : public esphome::number::Number, public Component {
 class PercentNumber : public esphome::number::Number, public Component {
     private:
         esphome::CallbackManager<void(float)> control_callback_;
+        #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+        // ESPPreferenceObject pref_ = global_preferences->make_preference<float>(this->get_entity_key());
         ESPPreferenceObject pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+        #else
+	    ESPPreferenceObject pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	    #endif
         float current_percent_power_limit_ = 100.0;
         
     public:
@@ -83,7 +95,12 @@ class PercentNumber : public esphome::number::Number, public Component {
 class AbsoluteNumber : public esphome::number::Number, public Component {
     private:
         esphome::CallbackManager<void(float)> control_callback_;
+        #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+        // ESPPreferenceObject pref_ = global_preferences->make_preference<float>(this->get_entity_key());
         ESPPreferenceObject pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+        #else
+	    ESPPreferenceObject pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	    #endif
         float current_absolute_power_limit_ = 1000.0;
         
     public:

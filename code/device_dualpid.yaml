@@ -64,6 +64,12 @@ switch:
     reverse: 
       name: ${name}_${dualpid_name}_reverse
       id:  ${dualpid_name}_reverse
+    allow_charging:
+      name: ${name}_${dualpid_name}_allow_charging
+      id:  ${dualpid_name}_allow_charging
+    allow_discharging:
+      name: ${name}_${dualpid_name}_allow_discharging
+      id:  ${dualpid_name}_allow_discharging  
       
 number:
   - platform: dualpid
@@ -106,4 +112,8 @@ number:
       name: ${name}_${dualpid_name}_output_min_discharging
     output_max_discharging: 
       name: ${name}_${dualpid_name}_output_max_discharging
+    self_consumption:
+      name: ${name}_${dualpid_name}_self_consumption
+    delta_idle_charging:
+      name: ${name}_${dualpid_name}_delta_idle_charging  
 

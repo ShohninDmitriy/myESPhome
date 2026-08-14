@@ -1,8 +1,8 @@
 #include "statistics.h"
 #include "esphome/core/log.h"
+#include "esphome/core/version.h"
 
-namespace esphome {
-namespace statistics {
+namespace esphome::statistics {
 
 static const char *const TAG = "statistics";
 
@@ -10,7 +10,12 @@ void STATISTICSComponent::setup() {
   float initial_value = 0;
 
   if (this->restore_) {
+	#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 9, 0)
+    // this->pref_ = global_preferences->make_preference<float>(this->get_entity_key());
+	this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());  
+    #else  
     this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+	#endif 
     this->pref_.load(&initial_value);
   }
   this->publish_state_and_save(initial_value);
@@ -97,5 +102,4 @@ void STATISTICSComponent::process_new_state_(float state) {
   this->publish_state_and_save(value);
 }
 
-}  // namespace statistics
 }  // namespace esphome
