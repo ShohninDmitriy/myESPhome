@@ -103,13 +103,14 @@ modbus:
   #flow_control_pin: 23
   send_wait_time: 200ms
   id: modbus_srne
+  turnaround_time: 100ms
+  role: client
 
 modbus_controller:
   - id: srne
     ## the Modbus device addr
     address: ${modbus_adress}
     modbus_id: modbus_srne
-    command_throttle: 200ms
     setup_priority: -10
     update_interval: ${updates}
 
@@ -1457,7 +1458,7 @@ text_sensor:
     address: 0x00B
     raw_encode: HEXBYTES
     lambda: |-
-      uint16_t value = modbus_controller::word_from_hex_str(x, 0);
+      uint16_t value = modbus::helpers::word_from_hex_str(x, 0);
       switch (value) {
         case 0: return std::string("Controller");
         case 1: return std::string("Inverter");
@@ -1475,7 +1476,7 @@ text_sensor:
     address: 0x0120
     raw_encode: HEXBYTES
     lambda: |-
-      uint16_t value = modbus_controller::word_from_hex_str(x, 0);
+      uint16_t value = modbus::helpers::word_from_hex_str(x, 0);
       switch (value) {
         case 0: return std::string("Charging desactivated");
         case 1: return std::string("Charging activated");
