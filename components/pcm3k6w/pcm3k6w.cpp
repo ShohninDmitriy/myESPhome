@@ -1,6 +1,9 @@
 #include "pcm3k6w.h"
 #include "esphome/core/log.h"
 
+#include <cmath>
+#include <cstdio>
+
 namespace esphome::pcm3k6w {
 
 static const char *const TAG = "pcm3k6w";
@@ -11,13 +14,30 @@ static inline uint16_t le16(const std::vector<uint8_t> &d, size_t i) {
   return (static_cast<uint16_t>(d[i + 1]) << 8) | d[i];
 }
 
+static const char *running_mode_text(uint8_t mode) {
+  switch (mode) {
+    case 0: return "Initialize";
+    case 1: return "Standby";
+    case 2: return "Grid-connected Charging";
+    case 3: return "Grid-connected Discharge";
+    case 4: return "Off-grid Inverter";
+    case 5: return "Fault";
+    default: return "Unknown";
+  }
+}
+
 void PCM3K6WComponent::setup() {
   this->canbus_->add_callback([this](uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data) {
     this->on_frame_(can_id, extended_id, rtr, data);
   });
 
-  // Mirrors the original on_boot sequence: after a 2s settle, force the
-  // charge/discharge current limits to a safe 1.0A and select charge mode.
+  // Mirrors the original on_boot sequence: query version + SN once, then
+  // after a 2s settle, force the charge/discharge current limits to a safe
+  // 1.0A and select charge mode.
+  this->set_timeout("pcm3k6w_boot_query", 500, [this]() {
+    this->enqueue_query_(0x07);  // program version
+    this->enqueue_query_(0x05);  // SN code
+  });
   this->set_timeout("pcm3k6w_boot", 2000, [this]() {
     this->enqueue_(0x02, 0x36, {0x0A, 0x00});  // charging current -> 1.0A
     this->enqueue_(0x02, 0x37, {0x0A, 0x00});  // discharging current -> 1.0A
@@ -84,6 +104,18 @@ void PCM3K6WComponent::on_frame_(uint32_t can_id, bool extended_id, bool rtr, co
   if (rx_type != 0x01 || rx_module != 0x0A || rx_addr != this->address_) return;
 
   switch (rx_reg) {
+    case 0x05: {  // SN code response
+      char buf[10];
+      snprintf(buf, sizeof(buf), "V%d.%02d", data[3], data[2]);
+      this->publish_text_sensor_(TXT_SN_CODE, buf);
+      break;
+    }
+    case 0x07: {  // Program version response
+      char buf[10];
+      snprintf(buf, sizeof(buf), "V%d.%02d", data[3], data[2]);
+      this->publish_text_sensor_(TXT_PROGRAM_VERSION, buf);
+      break;
+    }
     case 0x0A: {  // Phase mode readback
       uint8_t phase = data[2];
       this->publish_sensor_(SENS_PHASE_MODE_READBACK, phase == 0 ? 1.0f : 3.0f);
@@ -166,7 +198,8 @@ void PCM3K6WComponent::on_frame_(uint32_t can_id, bool extended_id, bool rtr, co
       this->publish_sensor_(SENS_GRID_MODE_READBACK, mode);
       if (this->selects_[SEL_GRID_MODE] != nullptr)
         this->selects_[SEL_GRID_MODE]->publish_state(mode == 1 ? "Discharge mode" : "Charge mode");
-      if (this->switches_[SW_DISCHARGE_CHARGE] != nullptr) this->switches_[SW_DISCHARGE_CHARGE]->publish_state(mode == 1);
+      // Switch semantics (see write_switch/SW_DISCHARGE_CHARGE): ON = charge (mode 0), OFF = discharge (mode 1).
+      if (this->switches_[SW_DISCHARGE_CHARGE] != nullptr) this->switches_[SW_DISCHARGE_CHARGE]->publish_state(mode == 0);
       break;
     }
     case 0x51: {  // Feedback parameter 1
@@ -178,6 +211,7 @@ void PCM3K6WComponent::on_frame_(uint32_t can_id, bool extended_id, bool rtr, co
       this->publish_sensor_(SENS_INVERTER_VOLTAGE, inv_v);
       this->publish_sensor_(SENS_INVERTING_CURRENT, inv_i);
       this->publish_sensor_(SENS_RUNNING_MODE_VALUE, running_mode);
+      this->publish_text_sensor_(TXT_RUNNING_MODE, running_mode_text(running_mode));
       break;
     }
     case 0x52: {  // Feedback parameter 2
@@ -208,6 +242,7 @@ void PCM3K6WComponent::on_frame_(uint32_t can_id, bool extended_id, bool rtr, co
       uint8_t inverter_freq = data[2];
       uint8_t f1 = data[4], f2 = data[5], f3 = data[6];
       this->publish_sensor_(SENS_OFFGRID_FREQUENCY, inverter_freq);
+      this->publish_text_sensor_(TXT_OFFGRID_FREQUENCY, inverter_freq == 50 ? "50 Hz" : (inverter_freq == 60 ? "60 Hz" : "Unknown"));
 
       this->publish_binary_sensor_(BSENS_FAULT_SOFT_START_TIMEOUT, f1 & 0x01);
       this->publish_binary_sensor_(BSENS_FAULT_BUS_OVERVOLTAGE, f1 & 0x02);
@@ -268,6 +303,16 @@ void PCM3K6WComponent::write_switch(uint8_t kind, bool state) {
 }
 
 void PCM3K6WComponent::write_number(uint8_t kind, float value) {
+  // Quantize to the configured number's `step` before doing anything else,
+  // so both the CAN payload and the value echoed back to the frontend match
+  // - this matters most for NUM_CHARGING_CURRENT / NUM_DISCHARGING_CURRENT,
+  // which can also be driven by an `output:` (fan speed 0.0-1.0) whose
+  // linear mapping doesn't naturally land on the number's 0.5A step.
+  if (kind < NUM_COUNT && this->numbers_[kind] != nullptr) {
+    float step = this->numbers_[kind]->traits.get_step();
+    if (!std::isnan(step) && step > 0.0f) value = std::round(value / step) * step;
+  }
+
   auto to_u16 = [](float v) -> uint16_t { return static_cast<uint16_t>(v * 10.0f); };
   auto lo = [](uint16_t v) -> uint8_t { return static_cast<uint8_t>(v & 0xFF); };
   auto hi = [](uint16_t v) -> uint8_t { return static_cast<uint8_t>(v >> 8); };
@@ -390,6 +435,59 @@ void PCM3K6WComponent::write_select(uint8_t kind, const std::string &value) {
       break;
   }
   if (this->selects_[kind] != nullptr) this->selects_[kind]->publish_state(value);
+}
+
+void PCM3K6WComponent::write_button(uint8_t kind) {
+  switch (kind) {
+    case BTN_STOP:
+      this->enqueue_(0x02, 0x01, {0x00, 0x00});
+      break;
+    case BTN_START:
+      this->enqueue_(0x02, 0x01, {0x01, 0x00});
+      break;
+    case BTN_RESET:
+      this->enqueue_(0x02, 0x01, {0x02, 0x00});
+      break;
+    case BTN_SET_DEFAULT_EEPROM: {
+      auto to_u16 = [](float v) -> uint16_t { return static_cast<uint16_t>(v * 10.0f); };
+      auto lo = [](uint16_t v) -> uint8_t { return static_cast<uint8_t>(v & 0xFF); };
+      auto hi = [](uint16_t v) -> uint8_t { return static_cast<uint8_t>(v >> 8); };
+
+      // Same voltage (whatever NUM_CHARGING_VOLTAGE currently reads, or its
+      // 56.0V default if that number isn't configured) is reused for both
+      // the charging and discharging register - there is no separate
+      // discharging voltage entity in this component.
+      float voltage = this->number_state_or_(NUM_CHARGING_VOLTAGE, 56.0f);
+      uint16_t v = to_u16(voltage);
+      uint16_t one_amp = to_u16(1.0f);
+
+      // i) Grid mode (EEPROM, reg 0x02) -> charge.
+      this->enqueue_(0x02, 0x02, {0x00, 0x00});
+      // ii) Charging voltage/current (EEPROM, reg 0x31) -> current forced to a safe 1.0A.
+      this->enqueue_(0x02, 0x31, {lo(v), hi(v), lo(one_amp), hi(one_amp)});
+      // iii) Discharging voltage/current (EEPROM, reg 0x32) -> current forced to a safe
+      // 1.0A. Unlike 0x31, this register was never exercised by the original YAML (its
+      // RX handler was commented out and there was no matching write action) - the
+      // voltage field's exact effect on the PCM is unconfirmed, verify on your hardware.
+      this->enqueue_(0x02, 0x32, {lo(v), hi(v), lo(one_amp), hi(one_amp)});
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+void PCM3K6WComponent::write_output(uint8_t kind, float value) {
+  switch (kind) {
+    case OUT_CHARGING_CURRENT:
+      this->write_number(NUM_CHARGING_CURRENT, value);
+      break;
+    case OUT_DISCHARGING_CURRENT:
+      this->write_number(NUM_DISCHARGING_CURRENT, value);
+      break;
+    default:
+      break;
+  }
 }
 
 }  // namespace esphome::pcm3k6w
