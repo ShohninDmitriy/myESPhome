@@ -94,7 +94,8 @@ void JSY194::on_modbus_data(const std::vector<uint8_t> &data) {
 	
   }
   else if(this->read_data_ == 2){ // read 0x04 register
-   	if ( (data[0]>=1) & (data[0] <= 255) & (data[1]>=3) & (data[0] <= 8)){
+   	// if ( (data[0]>=1) & (data[0] <= 255) & (data[1]>=3) & (data[0] <= 8)){
+    if ((data.size() >= 2) && (data[0] >= 1) && (data[1] >= 3) && (data[1] <= 8)){	 	
 	  this->current_address_ = data[0];
 	  this->current_baudrate_= data[1];
 	  ESP_LOGD(TAG, "JSY194: Read 0x04 register with address=%d, baudrate = %d", this->current_address_, this->current_baudrate_);
@@ -187,11 +188,17 @@ void JSY194::read_register04() {
   cmd.push_back(0x00);
   cmd.push_back(JSY194_REGISTER_SETTINGS_COUNT);
   ESP_LOGD(TAG, "JSY194: reading values from 0x04 register"); 
+  #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
+  this->queue_pdu(cmd);	
+  #else
   this->send_raw(cmd);
+  #endif	
+  // this->send_raw(cmd);
 }
 
 void JSY194::write_register04(uint8_t new_address , uint8_t new_baudrate) {
-  if ((new_address>=1) & (new_address <= 255) & (new_baudrate>=3) & (new_baudrate <= 8)){
+  // if ((new_address>=1) & (new_address <= 255) & (new_baudrate>=3) & (new_baudrate <= 8)){
+  if ((new_address>=1)  & (new_baudrate>=3) & (new_baudrate <= 8)){	  
     this->read_data_ = 3;
 	std::vector<uint8_t> cmd;
     cmd.push_back(0x00);  // broadcast address
@@ -205,7 +212,7 @@ void JSY194::write_register04(uint8_t new_address , uint8_t new_baudrate) {
     cmd.push_back(new_baudrate);
     ESP_LOGD(TAG, "JSY194: writing values into 0x04 register: address=%d, baudrate = %d", new_address_, new_baudrate); 
     #if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 8, 0)
-    this->send_pdu(cmd);	
+    this->queue_pdu(cmd);	
     #else
     this->send_raw(cmd);
     #endif

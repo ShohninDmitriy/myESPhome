@@ -1,0 +1,399 @@
+# `nrf24l01` — native ESPHome component for the nRF24L01(+)
+
+Native ESPHome component for the classic **nRF24L01 / nRF24L01+** 2.4GHz
+transceiver, over real hardware SPI (via ESPHome's `spi:` bus — unlike
+[`cmt2300a`](../cmt2300a/README.md), this chip doesn't need bit-banging).
+Register map, SPI commands, and the `begin()`/`setPALevel()`/`setDataRate()`/
+`openWritingPipe()`/`startListening()` sequence are ported from the
+[official nRF24/RF24 Arduino library](https://github.com/nRF24/RF24),
+cross-checked against the nRF24L01+ datasheet's register map (stable and
+unchanged for well over a decade).
+
+## Installation
+
+```yaml
+external_components:
+  - source: "github://SeByDocKy/myESPhome/"
+    components: [nrf24l01]
+    refresh: 10s
+```
+
+## Wiring
+
+Standard 4-wire SPI plus two extra control pins:
+
+| nRF24L01 pin | Role |
+|---|---|
+| `SCK` / `MOSI` / `MISO` | Declared once under `spi:` |
+| `CSN` | Chip select — declared under `cs_pin:` inside `nrf24l01:` |
+| `CE` | Chip enable — separate GPIO, controls Tx/Rx activation |
+| `IRQ` | Optional, not actively used (see below) |
+
+## Basic configuration
+
+```yaml
+spi:
+  id: spi_bus
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+nrf24l01:
+  id: radio
+  spi_id: spi_bus
+  cs_pin: GPIO5
+  ce_pin: GPIO4
+  # irq_pin: GPIO2        # optional, not actively used
+  channel: 76              # 0-125 -> 2400+channel MHz
+  pa_level: max             # min | low | high | max
+  air_data_rate: 1mbps          # 1mbps | 2mbps | 250kbps
+  crc_length: 16bit         # disabled | 8bit | 16bit
+  address_width: 5          # 3-5 bytes
+  auto_ack: true
+  retry_delay: 5             # 0-15 -> (n+1)*250us between retries
+  retry_count: 15            # 0-15 automatic retransmit attempts
+  payload_size: 32           # 1-32 bytes (fixed payloads)
+  dynamic_payloads: false
+  tx_address: "E7E7E7E7E7"   # this device's writing pipe (5 bytes, hex)
+  rx_address: "E7E7E7E7E7"   # this device's reading pipe 1 (5 bytes, hex)
+  on_packet_received:
+    - logger.log:
+        format: "Packet received (%u bytes)"
+        args: ["x.size()"]
+```
+
+### Options
+
+| Key | Required | Default | Description |
+|---|---|---|---|
+| `spi_id` | no (auto-detected if only one `spi:` bus exists) | — | The `spi:` bus this radio is on |
+| `cs_pin` | yes | — | Chip select pin (standard ESPHome SPI device option) |
+| `ce_pin` | yes | — | Chip enable pin |
+| `irq_pin` | no | — | IRQ pin, declared for future use but not currently polled/attached — the component checks `FIFO_STATUS` directly on every `loop()` tick instead |
+| `channel` | no | `76` | RF channel, `0`-`125` → `2400 + channel` MHz |
+| `pa_level` | no | `max` | `min` (-18dBm) / `low` (-12dBm) / `high` (-6dBm) / `max` (0dBm) |
+| `air_data_rate` | no | `1mbps` | `1mbps` / `2mbps` / `250kbps` |
+| `crc_length` | no | `16bit` | `disabled` / `8bit` / `16bit`. `disabled` is only honored if `auto_ack: false` — the chip requires CRC whenever hardware auto-ack is active; otherwise a warning is logged and CRC-16 is kept |
+| `address_width` | no | `5` | `3`-`5` bytes |
+| `auto_ack` | no | `true` | Hardware auto-acknowledgment on all pipes |
+| `retry_delay` | no | `5` | `0`-`15`, each step is 250µs between automatic retransmit attempts |
+| `retry_count` | no | `15` | `0`-`15` automatic retransmit attempts before giving up |
+| `payload_size` | no | `32` | `1`-`32` bytes, used when `dynamic_payloads: false` |
+| `dynamic_payloads` | no | `false` | Enables `DPL`/`ACK_PAY`/`DYN_ACK` features for variable-length payloads |
+| `tx_address` | no | `E7E7E7E7E7` | 10 hex characters (5 bytes) — this device's writing pipe / pipe-0 receive address (used for auto-ack) |
+| `rx_address` | no | `E7E7E7E7E7` | 10 hex characters (5 bytes) — this device's reading pipe 1 address |
+| `on_packet_received` | no | — | Automation; `x` is the received payload as `std::vector<uint8_t>` |
+
+### `select` platform — change PA level at runtime
+
+```yaml
+select:
+  - platform: nrf24l01
+    nrf24l01_id: radio
+    pa_level:
+      name: "NRF24 TX Power"
+```
+
+Same idea as `cmt2300a`'s `number: pa_level`, but as a `select` here since the
+nRF24L01 only has 4 discrete levels (`min`/`low`/`high`/`max`), not a
+continuous dBm range — this just re-applies the same register write
+`apply_pa_level_()` already does at boot, so it's safe to call at any time
+(no reset, no FIFO/state-machine interaction), including while `hm:` is mid
+exchange on the same radio. The entity's initial state reflects whatever
+`pa_level` (or its default `max`) was configured on `nrf24l01:`.
+
+### `nrf24l01.send` action
+
+```yaml
+button:
+  - platform: template
+    name: "Send test"
+    on_press:
+      - nrf24l01.send:
+          id: radio
+          data: [0xDE, 0xAD, 0xBE, 0xEF]
+```
+
+`data` accepts a literal byte list or a template. `send_packet()` briefly
+leaves listening mode, transmits, waits (blocking) for `TX_DS`/`MAX_RT` up to
+100ms by default, then resumes listening automatically — a transmission at
+these data rates normally completes in well under a millisecond to a few
+milliseconds even with retries, so this is not comparable to the CMT2300A's
+blocking-vs-async concerns.
+
+## `duty_cycle` sensor
+
+Only useful when `nrf24l01:` is shared by several `hm:` instances: reports
+the measured percentage of time the radio was actually locked/busy, over the
+window since the last publication (`update_interval`, default `60s`). Same
+mechanism and purpose as [`cmt2300a`'s `duty_cycle`
+sensor](../cmt2300a/README.md#duty_cycle-sensor) — a real measurement, not an
+estimate, useful for tuning each `hm:` instance's `poll_interval` to keep the
+channel from getting saturated (which would delay `number`/`output`
+power-limit commands behind ongoing telemetry exchanges).
+
+```yaml
+sensor:
+  - platform: nrf24l01
+    nrf24l01_id: radio
+    duty_cycle:
+      name: "NRF24 Duty Cycle"
+      update_interval: 60s
+```
+
+With a generic (non-`hm`) `nrf24l01:` usage, this always reads `0%` — the
+lock is only used by `external_mode` consumers.
+
+## `hm_count` sensor
+
+Number of `hm:` instances attached to this `nrf24l01:` that are currently
+**reachable** (see `hm`'s `reachable` binary_sensor) — out of however many
+are configured. Updated the instant any `hm:` instance's reachable state
+changes (event-driven, not polled). Same mechanism as [`cmt2300a`'s
+`hms_count` sensor](../cmt2300a/README.md#hms_count-sensor).
+
+```yaml
+sensor:
+  - platform: nrf24l01
+    nrf24l01_id: radio
+    hm_count:
+      name: "HM Reachable Count"
+```
+
+Compilation fails with a clear error if no `hm:` instance references this
+`nrf24l01_id` — without at least one, the count would always read `0`.
+
+## Two-device example
+
+```yaml
+# --- Device A ---
+nrf24l01:
+  id: radio
+  spi_id: spi_bus
+  cs_pin: GPIO5
+  ce_pin: GPIO4
+  tx_address: "AABBCCDDEE"   # A writes here (B must listen on this)
+  rx_address: "11223344EE"   # A listens here (B must write here)
+  on_packet_received:
+    - logger.log:
+        format: "From B: %u bytes, first=0x%02X"
+        args: ["x.size()", "x[0]"]
+
+button:
+  - platform: template
+    name: "Send to B"
+    on_press:
+      - nrf24l01.send: {id: radio, data: [0x01, 0x02]}
+```
+
+```yaml
+# --- Device B (addresses swapped) ---
+nrf24l01:
+  id: radio
+  spi_id: spi_bus
+  cs_pin: GPIO5
+  ce_pin: GPIO4
+  tx_address: "11223344EE"   # B writes here (A listens here)
+  rx_address: "AABBCCDDEE"   # B listens here (A writes here)
+  on_packet_received:
+    - logger.log:
+        format: "From A: %u bytes, first=0x%02X"
+        args: ["x.size()", "x[0]"]
+
+button:
+  - platform: template
+    name: "Send to A"
+    on_press:
+      - nrf24l01.send: {id: radio, data: [0xAA]}
+```
+
+## `packet_transport`
+
+Same medium as [`cmt2300a`](../cmt2300a/README.md#example-2--with-packet_transport):
+automatic exchange of sensor states between devices via ESPHome's official
+[`packet_transport`](https://esphome.io/components/packet_transport/)
+component, without writing your own parsing.
+
+```yaml
+packet_transport:
+  - platform: nrf24l01
+    nrf24l01_id: radio
+    update_interval: 10s
+    encryption: "MySharedSecret123"
+    sensors:
+      - my_temperature
+    binary_sensors:
+      - my_door_sensor
+```
+
+### Full two-device demo (sensor + binary_sensor)
+
+Two ESP32s, each with its own nRF24L01, mutually exchanging a temperature
+reading and a door sensor via `packet_transport`. Copy each block into a
+separate YAML file.
+
+#### `device_a.yaml`
+
+```yaml
+esphome:
+  name: device-a
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+ota:
+  - platform: esphome
+logger:
+
+external_components:
+  - source: "github://SeByDocKy/myESPhome/"
+    components: [nrf24l01]
+    refresh: 10s
+
+spi:
+  id: spi_bus
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+nrf24l01:
+  id: radio
+  spi_id: spi_bus
+  cs_pin: GPIO5
+  ce_pin: GPIO4
+  tx_address: "AABBCCDDEE"    # A writes here -- B must listen on this
+  rx_address: "11223344EE"    # A listens here -- B must write here
+
+# --- What device-a SENDS to device-b, AND receives from device-b ---
+sensor:
+  - platform: dht
+    pin: GPIO25
+    temperature:
+      name: "Temperature A"
+      id: temperature_a
+    update_interval: 30s
+
+  - platform: packet_transport
+    provider: device-b
+    id: temperature_b
+    name: "Temperature B (received)"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO26
+      mode: INPUT_PULLUP
+    name: "Door A"
+    id: door_a
+
+  - platform: packet_transport
+    provider: device-b
+    id: door_b
+    name: "Door B (received)"
+
+packet_transport:
+  - platform: nrf24l01
+    nrf24l01_id: radio
+    update_interval: 10s
+    encryption: "SharedSecretAB"
+    sensors:
+      - temperature_a
+    binary_sensors:
+      - door_a
+```
+
+#### `device_b.yaml`
+
+```yaml
+esphome:
+  name: device-b
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+ota:
+  - platform: esphome
+logger:
+
+external_components:
+  - source: "github://SeByDocKy/myESPhome/"
+    components: [nrf24l01]
+    refresh: 10s
+
+spi:
+  id: spi_bus
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+nrf24l01:
+  id: radio
+  spi_id: spi_bus
+  cs_pin: GPIO5
+  ce_pin: GPIO4
+  tx_address: "11223344EE"    # B writes here -- A listens here
+  rx_address: "AABBCCDDEE"    # B listens here -- A writes here
+
+# --- What device-b SENDS to device-a, AND receives from device-a ---
+sensor:
+  - platform: dht
+    pin: GPIO25
+    temperature:
+      name: "Temperature B"
+      id: temperature_b
+    update_interval: 30s
+
+  - platform: packet_transport
+    provider: device-a
+    id: temperature_a
+    name: "Temperature A (received)"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO26
+      mode: INPUT_PULLUP
+    name: "Door B"
+    id: door_b
+
+  - platform: packet_transport
+    provider: device-a
+    id: door_a
+    name: "Door A (received)"
+
+packet_transport:
+  - platform: nrf24l01
+    nrf24l01_id: radio
+    update_interval: 10s
+    encryption: "SharedSecretAB"
+    sensors:
+      - temperature_b
+    binary_sensors:
+      - door_b
+```
+
+Same key points as the CMT2300A demo: `provider:` must match the sending
+device's ESPHome name, `encryption:` must match on both sides, and each
+device is both a provider and a consumer.
+
+## Known limitations of this v1
+
+- No multi-pipe reception (pipes 2-5) exposed in YAML — only pipe 1 is opened
+  for reading. The register-level API to open other pipes exists internally
+  but isn't wired up to configuration yet.
+- No ACK-payload support (`W_ACK_PAYLOAD`) even with `dynamic_payloads: true`
+  — only plain auto-ack (empty acknowledgment) is used.

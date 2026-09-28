@@ -154,8 +154,11 @@ binary_sensor:
     dualpidpcm_id: ${dualpidpcm_id}
     deadband:
       name: ${name}_${dualpidpcm_name}_deadband
-
-  
+    undervoltage_lockout:
+      name: ${name}_${dualpidpcm_name}_undervoltage_lockout
+    # timer_standby: 
+    #   name: ${name}_${dualpidpcm_name}_timer_standby
+      
 switch:
   - platform: dualpidpcm
     dualpidpcm_id: ${dualpidpcm_id}
@@ -214,4 +217,6 @@ number:
       name: ${name}_${dualpidpcm_name}_delta_idle_charging
     delta_idle_discharging:
       name: ${name}_${dualpidpcm_name}_delta_idle_discharging
+    # timer_standby_poweroff: 
+    #   name: ${name}_${dualpidpcm_name}_timer_standby_poweroff
 

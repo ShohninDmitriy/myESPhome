@@ -2,7 +2,6 @@
 #include "esphome/core/log.h"
 
 namespace esphome::jsy193 {
-// namespace jsy193 {
 
 static const char *const TAG = "jsy193";
 static const uint8_t JSY193_CMD_READ_IN_REGISTERS = 0x03;   // multiple registers
@@ -92,7 +91,8 @@ void JSY193::on_modbus_data(const std::vector<uint8_t> &data) {
       this->power_factor2_sensor_->publish_state(power_factor2);  
   }
   else if(this->read_data_ == 2){ // read 0x04 register
-   if ( (data[0]>=1) & (data[0] <= 255) & (data[1]>=3) & (data[0] <= 8)){
+   // if ( (data[0]>=1) & (data[0] <= 255) & (data[1]>=3) & (data[0] <= 8)){
+   if ((data.size() >= 2) && (data[0] >= 1) && (data[1] >= 3) && (data[1] <= 8)){   
 	  this->current_address_ = data[0];
 	  this->current_baudrate_= data[1];
 	  ESP_LOGD(TAG, "JSY193: Read 0x04 register with address=%d, baudrate = %d", this->current_address_, this->current_baudrate_);
@@ -174,7 +174,8 @@ void JSY193::read_register04() {
 }
 
 void JSY193::write_register04(uint8_t new_address , uint8_t new_baudrate) {
-  if ((new_address>=1) & (new_address <= 255) & (new_baudrate>=3) & (new_baudrate <= 8)){
+  // if ((new_address>=1) & (new_address <= 255) & (new_baudrate>=3) & (new_baudrate <= 8)){
+  if ((new_address >= 1) && (new_baudrate >= 3) && (new_baudrate <= 8)){	  
     this->read_data_ = 3;
 	std::vector<uint8_t> cmd;
     cmd.push_back(0x00);  // broadcast address
@@ -253,5 +254,4 @@ void JSY193::reset_energy2() {
   #endif
 }
 
-// }  // namespace jsy193
 }  // namespace esphome::jsy193
