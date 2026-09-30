@@ -22,9 +22,9 @@ from esphome.const import (
     UNIT_WATT,
 )
 
-from .. import CONF_TSUNGEN3_ID, TSunGen3Component
+from .. import CONF_DEYEMI_ID, DeyeMiComponent
 
-DEPENDENCIES = ["tsungen3"]
+DEPENDENCIES = ["deyemi"]
 
 # Structure matches this author's hms/hmsw components: a `dc_channels` list
 # (one entry per MPPT string, 0-indexed -- pv0, pv1, ...) plus flat `ac:` and
@@ -37,10 +37,9 @@ CONF_ENERGY_TODAY = "energy_today"
 CONF_ENERGY_TOTAL = "energy_total"
 CONF_RATED_POWER = "rated_power"
 
-# Icon/accuracy conventions match this author's `hms` component
-# (sensor/__init__.py: _POWER_SCHEMA, _DC_CURRENT_SCHEMA, _AC_CURRENT_SCHEMA,
-# _VOLTAGE_SCHEMA, _ENERGY_TODAY_SCHEMA/_ENERGY_TOTAL_SCHEMA, _FREQUENCY_SCHEMA,
-# _TEMPERATURE_SCHEMA) -- same icon strings and accuracy_decimals values.
+# Icon/accuracy conventions match this author's tsungen3/hms components
+# (same schemas, same icon strings and accuracy_decimals values) for
+# consistency across the repo.
 _POWER_SCHEMA = sensor.sensor_schema(
     unit_of_measurement=UNIT_WATT,
     device_class=DEVICE_CLASS_POWER,
@@ -48,7 +47,6 @@ _POWER_SCHEMA = sensor.sensor_schema(
     accuracy_decimals=1,
     icon="mdi:power",
 )
-# Grid-side (AC) current
 _AC_CURRENT_SCHEMA = sensor.sensor_schema(
     unit_of_measurement="A",
     device_class=DEVICE_CLASS_CURRENT,
@@ -56,7 +54,6 @@ _AC_CURRENT_SCHEMA = sensor.sensor_schema(
     accuracy_decimals=2,
     icon="mdi:current-ac",
 )
-# PV-side (DC) current
 _DC_CURRENT_SCHEMA = sensor.sensor_schema(
     unit_of_measurement="A",
     device_class=DEVICE_CLASS_CURRENT,
@@ -64,7 +61,6 @@ _DC_CURRENT_SCHEMA = sensor.sensor_schema(
     accuracy_decimals=2,
     icon="mdi:current-dc",
 )
-# Shared by grid (AC) and PV (DC) voltage, same as hms's single _VOLTAGE_SCHEMA
 _VOLTAGE_SCHEMA = sensor.sensor_schema(
     unit_of_measurement=UNIT_VOLT,
     device_class=DEVICE_CLASS_VOLTAGE,
@@ -133,11 +129,11 @@ def _dc_channel_entry(value):
 
 def _validate_dc_channels_list(value):
     value = cv.ensure_list(_dc_channel_entry)(value)
-    # No compile-time SN-based cross-check against the actual MPPT count on
-    # real hardware (unlike hms, which decodes it from the Hoymiles SN
-    # prefix) -- no equivalent prefix table is known for TSUN GEN3 PLUS
-    # serials, and this component has no `model:` config key either. Just a
-    # generic 1-4 bound for now.
+    # No compile-time SN-or-model-based cross-check against the actual MPPT
+    # count on real hardware (unlike hms, which decodes it from the Hoymiles
+    # SN prefix) -- `model: auto` is resolved from the "Inverter ID" string
+    # at runtime, not at YAML-validation time, so there's nothing reliable
+    # to cross-check against here yet. Just a generic 1-4 bound for now.
     cv.Length(min=1, max=4)(value)
 
     seen = set()
@@ -154,7 +150,7 @@ def _validate_dc_channels_list(value):
 
 CONFIG_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(CONF_TSUNGEN3_ID): cv.use_id(TSunGen3Component),
+        cv.GenerateID(CONF_DEYEMI_ID): cv.use_id(DeyeMiComponent),
         cv.Optional(CONF_DC_CHANNELS): _validate_dc_channels_list,
         cv.Optional(CONF_AC): AC_SCHEMA,
         cv.Optional(CONF_INVERTER): INVERTER_SCHEMA,
@@ -163,7 +159,7 @@ CONFIG_SCHEMA = cv.Schema(
 
 
 async def to_code(config):
-    hub = await cg.get_variable(config[CONF_TSUNGEN3_ID])
+    hub = await cg.get_variable(config[CONF_DEYEMI_ID])
 
     # `dc_channels` list index (0-based) maps 1:1 to the hub's pv_*_sensor_[]
     # array slot -- pv0 -> index 0, ..., pv3 -> index 3. The channel's own

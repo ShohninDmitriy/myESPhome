@@ -165,10 +165,10 @@ std::vector<uint8_t> TSunGen3Component::wrap_v5_request_(uint8_t frame_type, uin
   frame.push_back(this->v5_serial_);
   frame.push_back(0x00);
 
-  frame.push_back(this->logger_serial_ & 0xFF);
-  frame.push_back((this->logger_serial_ >> 8) & 0xFF);
-  frame.push_back((this->logger_serial_ >> 16) & 0xFF);
-  frame.push_back((this->logger_serial_ >> 24) & 0xFF);
+  frame.push_back(this->sn_ & 0xFF);
+  frame.push_back((this->sn_ >> 8) & 0xFF);
+  frame.push_back((this->sn_ >> 16) & 0xFF);
+  frame.push_back((this->sn_ >> 24) & 0xFF);
 
   frame.insert(frame.end(), payload.begin(), payload.end());
 
@@ -468,9 +468,9 @@ bool TSunGen3Component::connect_and_transact_(const std::vector<uint8_t> &reques
 
 void TSunGen3Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TSUN GEN3 PLUS component...");
-  if (this->logger_serial_ == 0) {
+  if (this->sn_ == 0) {
     ESP_LOGW(TAG,
-             "logger_serial is 0 (default) -- confirmed on real hardware to get NO "
+             "sn is 0 (default) -- confirmed on real hardware to get NO "
              "response in client_mode. Set it to the inverter's real 'Monitoring SN' "
              "(printed on its sticker) if polling fails.");
   }
@@ -631,19 +631,19 @@ void TSunGen3Component::handle_live_block_(const std::vector<uint8_t> &regs, uin
 #endif
 
 #ifdef USE_SENSOR
-  if (this->grid_voltage_sensor_ != nullptr)
-    this->grid_voltage_sensor_->publish_state(get_u16_(regs, 0x3009, start_reg) * 0.1f);
-  if (this->grid_current_sensor_ != nullptr)
-    this->grid_current_sensor_->publish_state(get_u16_(regs, 0x300a, start_reg) * 0.01f);
-  if (this->grid_frequency_sensor_ != nullptr)
-    this->grid_frequency_sensor_->publish_state(get_u16_(regs, 0x300b, start_reg) * 0.01f);
+  if (this->ac_voltage_sensor_ != nullptr)
+    this->ac_voltage_sensor_->publish_state(get_u16_(regs, 0x3009, start_reg) * 0.1f);
+  if (this->ac_current_sensor_ != nullptr)
+    this->ac_current_sensor_->publish_state(get_u16_(regs, 0x300a, start_reg) * 0.01f);
+  if (this->ac_frequency_sensor_ != nullptr)
+    this->ac_frequency_sensor_->publish_state(get_u16_(regs, 0x300b, start_reg) * 0.01f);
   if (this->temperature_sensor_ != nullptr)
     // Register stores (actual_temperature + 40)
     this->temperature_sensor_->publish_state((float) get_u16_(regs, 0x300c, start_reg) - 40.0f);
   if (this->rated_power_sensor_ != nullptr)
     this->rated_power_sensor_->publish_state((float) get_u16_(regs, 0x300e, start_reg));
-  if (this->current_power_sensor_ != nullptr)
-    this->current_power_sensor_->publish_state(get_u16_(regs, 0x300f, start_reg) * 0.1f);
+  if (this->ac_power_sensor_ != nullptr)
+    this->ac_power_sensor_->publish_state(get_u16_(regs, 0x300f, start_reg) * 0.1f);
 
   static const uint16_t PV_BASE[4] = {0x3010, 0x3013, 0x3016, 0x3019};
   for (uint8_t i = 0; i < 4; i++) {
@@ -666,7 +666,7 @@ void TSunGen3Component::dump_config() {
   ESP_LOGCONFIG(TAG, "TSUN GEN3 PLUS:");
   ESP_LOGCONFIG(TAG, "  Host: %s:%u", this->host_.c_str(), this->port_);
   ESP_LOGCONFIG(TAG, "  Modbus address: %u", this->modbus_address_);
-  ESP_LOGCONFIG(TAG, "  Logger serial: %u", (unsigned) this->logger_serial_);
+  ESP_LOGCONFIG(TAG, "  SN: %u", (unsigned) this->sn_);
 }
 
 // ---------------------------------------------------------------------------

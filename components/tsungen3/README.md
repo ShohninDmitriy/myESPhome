@@ -1,8 +1,42 @@
 # tsungen3
 
-Native ESPHome component for **TSUN / TSOL GEN3 PLUS** micro-inverters (e.g.
-MX1000, MX3000, MX450, MS1600/1800/2000, MS2000-D, MS800) and compatible
-GEN3 PLUS storage systems, read over their local TCP interface.
+Native ESPHome component for **TSUN / TSOL GEN3 PLUS** micro-inverters, read
+and controlled over their local TCP interface.
+
+## Compatible models (GEN3 PLUS only)
+
+Per [s-allius/tsun-gen3-proxy](https://github.com/s-allius/tsun-gen3-proxy)'s
+own compatibility list (this component targets the same generation and
+protocol, so the same list applies):
+
+- **Inverters**: TSOL-MX3000, TSOL-MX1000, TSOL-MX450, TSOL-MS2000,
+  TSOL-MS1800, TSOL-MS1600, TSOL-MS800
+- **Battery/storage**: TSOL-DC1000 (protocol family only -- this component
+  was written for and tested against an inverter, not a storage unit; the
+  register map would very likely differ)
+- **Smart meter**: TSOL-MG3-MS, DDZY422-D2 (same caveat as above)
+
+This does **not** cover GEN4 hardware (a different, incompatible register
+map -- see this author's other components for GEN4-specific work, if any
+exists by the time you're reading this).
+
+## ⚠️ Use the "Monitoring SN", never the printed inverter serial number
+
+This is the single most common reason polling silently fails, so it gets
+its own section up top rather than being buried in `sn`'s field
+description below.
+
+Every GEN3 PLUS device ships with a small sticker carrying a **"Monitoring
+SN:"** -- a separate number from the inverter's own printed serial number
+(which starts with `Y17`/`Y47` for inverters, `410` for battery/storage
+units). **`sn` must be set to the Monitoring SN, not the
+inverter's serial number.** Confirmed on real MX1000 hardware (see "Confirmed
+against real hardware" below): the default of `0` gets no response at all in
+client_mode, and using the inverter's own serial number instead of the
+Monitoring SN will fail exactly the same way, since neither is what the
+Solarman V5 protocol's "Logger Serial" field actually expects -- it's asking
+for the *logger's* identity (the WiFi/monitoring module built into the
+device), not the inverter's.
 
 ## Protocol
 
@@ -125,7 +159,7 @@ wiki; no other AT+ commands are wired up here.
 
 - **Solarman "Logger Serial" field must be the real "Monitoring SN"** printed
   on the inverter's sticker — `0` (the option's default) does **not** get a
-  response in client_mode. Set `logger_serial` explicitly.
+  response in client_mode. Set `sn` explicitly.
 - **Modbus slave/unit address `1`** works as documented.
 - The read path (framing, both CRCs, register offsets, scaling) is correct:
   `rated_power` read back as exactly `1000.0 W` on a real MX1000 (1000W
@@ -171,18 +205,23 @@ wiki; no other AT+ commands are wired up here.
 
 ```yaml
 external_components:
-  - source:
-      type: local
-      path: components
+  - source: "github://SeByDocKy/myESPhome/"
     components: [tsungen3]
+    refresh: 10s
+
+  # Local checkout instead (e.g. while developing the component itself):
+  # - source:
+  #     type: local
+  #     path: components
+  #   components: [tsungen3]
 
 tsungen3:
   - id: mx1000
     ip_address: 192.168.1.50   # fixed IP of the inverter
     ip_port: 8899               # client-mode plain-TCP port
     modbus_address: 1
-    logger_serial: 2093984xxx  # required -- the real "Monitoring SN" on the sticker;
-                                 # the default (0) gets no response in client_mode
+    sn: 2093984xxx  # required -- the real "Monitoring SN" on the sticker;
+                      # the default (0) gets no response in client_mode
     poll_interval: 30s
 
   # Second GEN3 PLUS inverter on the same ESP (MULTI_CONF):
@@ -193,34 +232,42 @@ tsungen3:
 sensor:
   - platform: tsungen3
     tsungen3_id: mx1000
-    grid_voltage:
-      name: "MX1000 Grid Voltage"
-    grid_current:
-      name: "MX1000 Grid Current"
-    grid_frequency:
-      name: "MX1000 Grid Frequency"
-    temperature:
-      name: "MX1000 Temperature"
-    rated_power:
-      name: "MX1000 Rated Power"
-    current_power:
-      name: "MX1000 Current Power"
-    ac_energy_today:
-      name: "MX1000 AC Daily Energy"
-    ac_energy_total:
-      name: "MX1000 AC Total Energy"
-    pv1_voltage:
-      name: "MX1000 PV1 Voltage"
-    pv1_current:
-      name: "MX1000 PV1 Current"
-    pv1_power:
-      name: "MX1000 PV1 Power"
-    pv2_voltage:
-      name: "MX1000 PV2 Voltage"
-    pv2_current:
-      name: "MX1000 PV2 Current"
-    pv2_power:
-      name: "MX1000 PV2 Power"
+    # One entry per PV string, 0-indexed (pv0, pv1, ...) -- matches this
+    # author's hms/hmsw components. Add pv2/pv3 entries for a model with
+    # more than 2 MPPT inputs.
+    dc_channels:
+      - pv0:
+          voltage:
+            name: "MX1000 PV0 Voltage"
+          current:
+            name: "MX1000 PV0 Current"
+          power:
+            name: "MX1000 PV0 Power"
+      - pv1:
+          voltage:
+            name: "MX1000 PV1 Voltage"
+          current:
+            name: "MX1000 PV1 Current"
+          power:
+            name: "MX1000 PV1 Power"
+    ac:
+      voltage:
+        name: "MX1000 Grid Voltage"
+      current:
+        name: "MX1000 Grid Current"
+      frequency:
+        name: "MX1000 Grid Frequency"
+      power:
+        name: "MX1000 Current Power"
+      energy_today:
+        name: "MX1000 AC Daily Energy"
+      energy_total:
+        name: "MX1000 AC Total Energy"
+    inverter:
+      temperature:
+        name: "MX1000 Temperature"
+      rated_power:
+        name: "MX1000 Rated Power"
 
 text_sensor:
   - platform: tsungen3

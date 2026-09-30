@@ -102,7 +102,7 @@ class TSunGen3Component : public PollingComponent {
   void set_host(const std::string &host) { this->host_ = host; }
   void set_port(uint16_t port) { this->port_ = port; }
   void set_modbus_address(uint8_t address) { this->modbus_address_ = address; }
-  void set_logger_serial(uint32_t serial) { this->logger_serial_ = serial; }
+  void set_sn(uint32_t serial) { this->sn_ = serial; }
 
   void setup() override;
   void update() override;
@@ -127,27 +127,23 @@ class TSunGen3Component : public PollingComponent {
   void send_reset_command();
 
 #ifdef USE_SENSOR
-  void set_grid_voltage_sensor(sensor::Sensor *s) { this->grid_voltage_sensor_ = s; }
-  void set_grid_current_sensor(sensor::Sensor *s) { this->grid_current_sensor_ = s; }
-  void set_grid_frequency_sensor(sensor::Sensor *s) { this->grid_frequency_sensor_ = s; }
-  void set_temperature_sensor(sensor::Sensor *s) { this->temperature_sensor_ = s; }
-  void set_rated_power_sensor(sensor::Sensor *s) { this->rated_power_sensor_ = s; }
-  void set_current_power_sensor(sensor::Sensor *s) { this->current_power_sensor_ = s; }
+  void set_ac_voltage_sensor(sensor::Sensor *s) { this->ac_voltage_sensor_ = s; }
+  void set_ac_current_sensor(sensor::Sensor *s) { this->ac_current_sensor_ = s; }
+  void set_ac_frequency_sensor(sensor::Sensor *s) { this->ac_frequency_sensor_ = s; }
+  void set_ac_power_sensor(sensor::Sensor *s) { this->ac_power_sensor_ = s; }
   void set_ac_energy_today_sensor(sensor::Sensor *s) { this->ac_energy_today_sensor_ = s; }
   void set_ac_energy_total_sensor(sensor::Sensor *s) { this->ac_energy_total_sensor_ = s; }
+  void set_temperature_sensor(sensor::Sensor *s) { this->temperature_sensor_ = s; }
+  void set_rated_power_sensor(sensor::Sensor *s) { this->rated_power_sensor_ = s; }
 
-  void set_pv1_voltage_sensor(sensor::Sensor *s) { this->pv_voltage_sensor_[0] = s; }
-  void set_pv1_current_sensor(sensor::Sensor *s) { this->pv_current_sensor_[0] = s; }
-  void set_pv1_power_sensor(sensor::Sensor *s) { this->pv_power_sensor_[0] = s; }
-  void set_pv2_voltage_sensor(sensor::Sensor *s) { this->pv_voltage_sensor_[1] = s; }
-  void set_pv2_current_sensor(sensor::Sensor *s) { this->pv_current_sensor_[1] = s; }
-  void set_pv2_power_sensor(sensor::Sensor *s) { this->pv_power_sensor_[1] = s; }
-  void set_pv3_voltage_sensor(sensor::Sensor *s) { this->pv_voltage_sensor_[2] = s; }
-  void set_pv3_current_sensor(sensor::Sensor *s) { this->pv_current_sensor_[2] = s; }
-  void set_pv3_power_sensor(sensor::Sensor *s) { this->pv_power_sensor_[2] = s; }
-  void set_pv4_voltage_sensor(sensor::Sensor *s) { this->pv_voltage_sensor_[3] = s; }
-  void set_pv4_current_sensor(sensor::Sensor *s) { this->pv_current_sensor_[3] = s; }
-  void set_pv4_power_sensor(sensor::Sensor *s) { this->pv_power_sensor_[3] = s; }
+  // Generic, index-based (0-3) DC/PV-channel setters -- index maps 1:1 to
+  // the `dc_channels` YAML list position (pv0 = index 0, ...). Replaces the
+  // former set_pv1_voltage_sensor()..set_pv4_power_sensor() 12-method set;
+  // the underlying storage was already array-based, only the setter surface
+  // changes here.
+  void set_dc_voltage_sensor(uint8_t index, sensor::Sensor *s) { this->pv_voltage_sensor_[index] = s; }
+  void set_dc_current_sensor(uint8_t index, sensor::Sensor *s) { this->pv_current_sensor_[index] = s; }
+  void set_dc_power_sensor(uint8_t index, sensor::Sensor *s) { this->pv_power_sensor_[index] = s; }
 #endif
 
 #ifdef USE_TEXT_SENSOR
@@ -160,7 +156,7 @@ class TSunGen3Component : public PollingComponent {
   std::string host_;
   uint16_t port_{8899};
   uint8_t modbus_address_{1};
-  uint32_t logger_serial_{0};
+  uint32_t sn_{0};
   uint8_t v5_serial_{0};
 
   bool connect_and_transact_(const std::vector<uint8_t> &request, std::vector<uint8_t> &response);
@@ -213,12 +209,12 @@ class TSunGen3Component : public PollingComponent {
   TaskHandle_t task_handle_{nullptr};
 
 #ifdef USE_SENSOR
-  sensor::Sensor *grid_voltage_sensor_{nullptr};
-  sensor::Sensor *grid_current_sensor_{nullptr};
-  sensor::Sensor *grid_frequency_sensor_{nullptr};
+  sensor::Sensor *ac_voltage_sensor_{nullptr};
+  sensor::Sensor *ac_current_sensor_{nullptr};
+  sensor::Sensor *ac_frequency_sensor_{nullptr};
+  sensor::Sensor *ac_power_sensor_{nullptr};
   sensor::Sensor *temperature_sensor_{nullptr};
   sensor::Sensor *rated_power_sensor_{nullptr};
-  sensor::Sensor *current_power_sensor_{nullptr};
   sensor::Sensor *ac_energy_today_sensor_{nullptr};
   sensor::Sensor *ac_energy_total_sensor_{nullptr};
   sensor::Sensor *pv_voltage_sensor_[4]{nullptr, nullptr, nullptr, nullptr};

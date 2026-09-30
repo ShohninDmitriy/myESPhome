@@ -1,15 +1,13 @@
 substitutions:
-  name: "test_tsungen3"
+  name: "test_deyemi"
 
 esphome:
   name: ${name}
   min_version: 2026.7.0
 
 esp32:
-  #board: esp32-s3-devkitc-1
   board: esp32dev
   cpu_frequency: 240Mhz
-  # toolchain: platformio
   framework:
     type: esp-idf
     version: 'dev'
@@ -28,44 +26,34 @@ ota:
 external_components:
 
   - source: "github://SeByDocKy/myESPhome/"
-    components: [tsungen3]
+    components: [deyemi]
     refresh: 10s
 
+  # Local checkout instead (e.g. while developing the component itself):
   # - source:
-      # type: local
-      # path: components
+  #     type: local
+  #     path: components
+  #   components: [deyemi]
+
 
 logger:
-  # hardware_uart: USB_SERIAL_JTAG
-   level: debug #debug
+   level: debug
 
 debug:
   update_interval: 5s
 
 
-tsungen3:
-  - id: mx1000
-    ip_address: 192.168.1.81   # adresse IP fixe de l'onduleur MX1000
-    ip_port: 8899               # port client_mode (TCP clair)
+deyemi:
+  - id: deye1
+    ip_address: 192.168.1.90   # fixed IP of the inverter
+    ip_port: 8899               # client_mode plain-TCP port
     poll_interval: 5s
     modbus_address: 1
-    sn: 3455843077 #2093984xxx  # décommenter si l'onduleur ne répond pas avec 0
-
-  # Deuxième onduleur GEN3 PLUS sur le même ESP (MULTI_CONF) :
-  # - id: tsungen3_2
-  #   ip_address: 192.168.1.51
-  #   poll_interval: 30s
+    # sn: 2093984xxx  # set to the DATA LOGGER's serial, not the inverter's -- see README
+    model: auto                  # or "deye_2mppt" / "deye_4mppt" if auto-detection is wrong (works for GEN3 and GEN4 alike)
 
 
 sensor:
-
-  - platform: wifi_signal
-    name: ${name}_wifi_power
-    id: wifi_power
-    update_interval: 5s
-
-  - platform: uptime
-    id: uptime_sec
 
   - platform: debug
     free:
@@ -73,8 +61,8 @@ sensor:
     loop_time:
       name: ${name}_loop_time
 
-  - platform: tsungen3
-    tsungen3_id: mx1000
+  - platform: deyemi
+    deyemi_id: deye1
     dc_channels:
       - pv0:
           voltage:
@@ -123,30 +111,23 @@ sensor:
       rated_power:
         name: ${name}_rated_power
 
+
 text_sensor:
-  - platform: tsungen3
-    tsungen3_id: mx1000
+  - platform: deyemi
+    deyemi_id: deye1
     inverter_status:
       name: ${name}_inverter_status
-    event_alarms:
-      name: ${name}_event_alarms
-    event_faults:
-      name: ${name}_event_faults
+
 
 number:
-  - platform: tsungen3
-    tsungen3_id: mx1000
+  - platform: deyemi
+    deyemi_id: deye1
     power_percent:
       name: ${name}_power_percent
 
+
 output:
-  - platform: tsungen3
-    tsungen3_id: mx1000
+  - platform: deyemi
+    deyemi_id: deye1
     power_percent:
       id: ${name}_power_percent_output
-
-button:
-  - platform: tsungen3
-    tsungen3_id: mx1000
-    reset_tsungen3:
-      name: ${name}_reset_tsungen3
